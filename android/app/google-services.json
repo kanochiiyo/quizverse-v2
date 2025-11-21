@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "797915697768",
+    "project_id": "quizverse-v2",
+    "storage_bucket": "quizverse-v2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:797915697768:android:093f2d181f3a9efec6e1dd",
+        "android_client_info": {
+          "package_name": "com.example.quizverse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAM1Fkcn_qeRW8CNu8QhHF-knQ1-jHzP-w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

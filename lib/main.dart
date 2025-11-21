@@ -6,10 +6,14 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:quizverse/services/notification_service.dart';
 import 'package:quizverse/services/navigation_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 void main() async {
   // Bikin binding antara FLutter sama engine (diperlukan kita ada manggil fungsi sebelum runApp())
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await initializeDateFormatting('id_ID', null);
 
