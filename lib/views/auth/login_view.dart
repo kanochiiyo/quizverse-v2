@@ -13,7 +13,8 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
-  final TextEditingController _usernameController = TextEditingController();
+  // --- PERUBAHAN: Ganti ke _emailController ---
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final AuthController _authController = AuthController();
 
@@ -26,6 +27,14 @@ class _LoginViewState extends State<LoginView> {
     super.initState();
     _requestInitialPermissions();
     _checkLoginStatus();
+  }
+
+  @override
+  void dispose() {
+    _emailController
+        .dispose(); // Pastikan dispose dipanggil untuk controller baru
+    _passwordController.dispose();
+    super.dispose();
   }
 
   Future<void> _requestInitialPermissions() async {
@@ -85,10 +94,11 @@ class _LoginViewState extends State<LoginView> {
   }
 
   void _login() async {
-    if (_usernameController.text.trim().isEmpty ||
+    // --- PERUBAHAN: Validasi menggunakan _emailController ---
+    if (_emailController.text.trim().isEmpty ||
         _passwordController.text.isEmpty) {
       setState(() {
-        _errorMessage = "Username dan Password tidak boleh kosong!";
+        _errorMessage = "Email dan Password tidak boleh kosong!";
       });
       return;
     }
@@ -99,8 +109,9 @@ class _LoginViewState extends State<LoginView> {
     });
 
     try {
+      // --- PERUBAHAN: Panggil login dengan parameter email ---
       await _authController.login(
-        username: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -112,7 +123,10 @@ class _LoginViewState extends State<LoginView> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString();
+        // --- PERBAIKAN: Menangkap format error dari Controller ---
+        _errorMessage = e.toString().contains('Exception:')
+            ? e.toString().replaceFirst('Exception: ', '')
+            : e.toString();
       });
     } finally {
       if (mounted) {
@@ -136,7 +150,8 @@ class _LoginViewState extends State<LoginView> {
     final colorScheme = theme.colorScheme;
 
     if (_isLoading &&
-        _usernameController.text.isEmpty &&
+        // --- PERUBAHAN: Cek menggunakan _emailController ---
+        _emailController.text.isEmpty &&
         _errorMessage == null) {
       return Scaffold(
         body: Center(
@@ -153,13 +168,10 @@ class _LoginViewState extends State<LoginView> {
     }
 
     return Scaffold(
-      // backgroundColor: Colors.brown,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
-            // mainAxisAlignment: MainAxisAlignment.center,
-            // Biar menuhin width parent
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Icon(Icons.quiz, size: 80, color: colorScheme.primary),
@@ -175,12 +187,12 @@ class _LoginViewState extends State<LoginView> {
               const SizedBox(height: 32),
 
               TextField(
-                controller: _usernameController,
+                controller: _emailController, // --- PERUBAHAN ---
+                keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                  labelText: "Username",
-                  prefixIcon: Icon(Icons.person),
+                  labelText: "Email", // --- PERUBAHAN: Label diganti ---
+                  prefixIcon: Icon(Icons.email),
                 ),
-
                 enabled: !_isLoading,
               ),
               const SizedBox(height: 16),

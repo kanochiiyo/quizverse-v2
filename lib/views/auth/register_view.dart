@@ -1,6 +1,7 @@
-// lib/views/auth/register_view.dart
 import 'package:flutter/material.dart';
 import 'package:quizverse/controllers/auth_controller.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class RegisterView extends StatefulWidget {
   const RegisterView({super.key});
@@ -10,27 +11,48 @@ class RegisterView extends StatefulWidget {
 }
 
 class _RegisterViewState extends State<RegisterView> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _fullNameController = TextEditingController();
+
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+
   final AuthController _authController = AuthController();
 
   bool _isLoading = false;
   String? _errorMessage;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  File? _profileImage;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _fullNameController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   void _register() async {
     setState(() {
       _errorMessage = null;
     });
 
+    final email = _emailController.text.trim();
+    final fullName = _fullNameController.text.trim();
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (username.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    if (email.isEmpty ||
+        fullName.isEmpty ||
+        username.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
       setState(() {
         _errorMessage = "Semua field harus diisi!";
       });
@@ -42,9 +64,10 @@ class _RegisterViewState extends State<RegisterView> {
       });
       return;
     }
-    if (password.length < 8) {
+
+    if (password.length < 6) {
       setState(() {
-        _errorMessage = "Password minimal 8 karakter!";
+        _errorMessage = "Password minimal 6 karakter!";
       });
       return;
     }
@@ -54,7 +77,13 @@ class _RegisterViewState extends State<RegisterView> {
     });
 
     try {
-      await _authController.register(username: username, password: password);
+      await _authController.register(
+        email: email,
+        password: password,
+        fullName: fullName,
+        username: username,
+        profileImageFile: _profileImage,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -67,7 +96,9 @@ class _RegisterViewState extends State<RegisterView> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = e.toString().contains('Exception:')
+            ? e.toString().replaceFirst('Exception: ', '')
+            : e.toString();
       });
     } finally {
       if (mounted) {
@@ -100,13 +131,30 @@ class _RegisterViewState extends State<RegisterView> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Buat akun Quizverse Anda',
-                style: theme.textTheme.titleMedium,
-                textAlign: TextAlign.center,
+              const SizedBox(height: 16),
+
+              const SizedBox(height: 24),
+
+              TextField(
+                controller: _fullNameController,
+                decoration: const InputDecoration(
+                  labelText: "Nama Lengkap",
+                  prefixIcon: Icon(Icons.badge),
+                ),
+                enabled: !_isLoading,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: "Email",
+                  prefixIcon: Icon(Icons.email),
+                ),
+                enabled: !_isLoading,
+              ),
+              const SizedBox(height: 16),
 
               TextField(
                 controller: _usernameController,
