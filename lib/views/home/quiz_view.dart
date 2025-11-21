@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:quizverse/controllers/auth_controller.dart';
 import 'package:quizverse/models/quiz_model.dart';
-import 'package:quizverse/services/database_service.dart';
 import 'package:geocoding/geocoding.dart' as geocoding;
+import 'package:quizverse/services/firestore_service.dart';
 import 'package:quizverse/services/notification_service.dart';
 
 class QuizView extends StatefulWidget {
@@ -19,7 +19,7 @@ class QuizView extends StatefulWidget {
 
 class _QuizViewState extends State<QuizView> {
   // State controller
-  final DatabaseService _databaseService = DatabaseService();
+  final FirestoreService _firestoreService = FirestoreService();
   final AuthController _authController = AuthController();
   late ConfettiController _confettiController;
 
@@ -208,11 +208,10 @@ class _QuizViewState extends State<QuizView> {
 
     try {
       // Ambil userId
-      final String? userIdString = await _authController.getLoggedInUserId();
-      if (userIdString != null && widget.questions.isNotEmpty) {
-        // Masukkan ke table quiz_history dan kirim paramnya
-        final int newHistoryId = await _databaseService.saveQuizResult(
-          userId: int.parse(userIdString),
+      final String? userId = _authController.firebaseUser?.uid;
+      if (userId != null && widget.questions.isNotEmpty) {
+        final String newHistoryId = await _firestoreService.saveQuizResult(
+          userId: userId, 
           category: widget.questions.first.category,
           difficulty: widget.questions.first.difficulty,
           score: score,
@@ -224,7 +223,7 @@ class _QuizViewState extends State<QuizView> {
           quizDataJson: questionsJson,
           userAnswersJson: answersJson,
         );
-        // ngembaliin ID baris yang baru aja ditambahkan (newHistoryId) 
+        // ngembaliin ID baris yang baru aja ditambahkan (newHistoryId)
         debugPrint("Quiz result saved successfully! History ID: $newHistoryId");
 
         // Tampilkan notifikasi

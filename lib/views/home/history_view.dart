@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:quizverse/controllers/auth_controller.dart';
-import 'package:quizverse/services/database_service.dart';
+import 'package:quizverse/services/firestore_service.dart';
 import 'package:quizverse/views/home/history_detail_view.dart';
 
 class HistoryView extends StatefulWidget {
@@ -12,7 +12,7 @@ class HistoryView extends StatefulWidget {
 }
 
 class _HistoryViewState extends State<HistoryView> {
-  final DatabaseService _dbHelper = DatabaseService();
+  final FirestoreService _firestoreService = FirestoreService();
   final AuthController _authController = AuthController();
 
   final TextEditingController _searchController = TextEditingController();
@@ -49,10 +49,9 @@ class _HistoryViewState extends State<HistoryView> {
     });
 
     try {
-      final String? userIdString = await _authController.getLoggedInUserId();
-      if (userIdString != null) {
-        final int userId = int.parse(userIdString);
-        final history = await _dbHelper.getQuizHistory(userId);
+final String? userId = _authController.firebaseUser?.uid;
+      if (userId != null) {
+        final history = await _firestoreService.getQuizHistory(userId);
         if (!mounted) return;
         setState(() {
           _quizHistory = history;

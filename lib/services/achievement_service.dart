@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:quizverse/models/achievement_model.dart';
-import 'package:quizverse/services/database_service.dart';
+import 'package:quizverse/services/firestore_service.dart';
 
 class AchievementService {
-  final DatabaseService _databaseService = DatabaseService();
+  final FirestoreService _firestoreService = FirestoreService();
 
   // Getter template List Achievement saat ini yang tersedia
   List<AchievementModel> get allAchievements => [
@@ -72,10 +72,10 @@ class AchievementService {
     ),
   ];
 
-  // Ambil user achievement dari DB
-  Future<List<AchievementModel>> getUserAchievements(int userId) async {
+  // Ambil user achievement dari Firestore
+  Future<List<AchievementModel>> getUserAchievements(String userId) async {
     try {
-      final achievements = await _databaseService.getUserAchievements(
+      final achievements = await _firestoreService.getUserAchievements(
         userId,
         allAchievements,
       );
@@ -87,19 +87,21 @@ class AchievementService {
   }
 
   // Kalkulasi ulang progress user
-  Future<List<AchievementModel>> recalculateAndSaveProgress(int userId) async {
+  Future<List<AchievementModel>> recalculateAndSaveProgress(
+    String userId,
+  ) async {
     try {
       // Ambil riwayat quiz yang udah diselesaikan oleh user
-      final history = await _databaseService.getQuizHistory(userId);
+      final history = await _firestoreService.getQuizHistory(userId);
 
       // Ambil dulu achievement yang user udah punya dan juga progressnya
       final savedAchievements = await getUserAchievements(userId);
 
       final finalAchievements = <AchievementModel>[];
 
-      // Update berdasdarkan data yang udah diambil tadi
+      // Update berdasarkan data yang udah diambil tadi
       for (var template in allAchievements) {
-        // Kita bikin variabel saved terus
+        // Kita bikin variabel saved
         final saved = savedAchievements.firstWhere(
           (a) => a.id == template.id,
           orElse: () => template, // Gunakan template jika tidak ada
@@ -168,14 +170,13 @@ class AchievementService {
           template.copyWith(
             currentValue: currentValue,
             isUnlocked: isNowUnlocked,
-
             unlockedAt: isNowUnlocked ? DateTime.now() : null,
           ),
         );
       }
 
-      // Simpan ke DB
-      await _databaseService.saveUserAchievements(userId, finalAchievements);
+      // Simpan ke Firestore
+      await _firestoreService.saveUserAchievements(userId, finalAchievements);
 
       return finalAchievements;
     } catch (e) {
@@ -185,7 +186,7 @@ class AchievementService {
   }
 
   Future<List<AchievementModel>> getNewlyUnlockedAchievements(
-    int userId,
+    String userId,
     List<AchievementModel> previousAchievements,
   ) async {
     final currentAchievements = await recalculateAndSaveProgress(userId);

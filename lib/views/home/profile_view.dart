@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:quizverse/controllers/auth_controller.dart';
+import 'package:quizverse/services/firestore_service.dart';
 import 'package:quizverse/views/auth/login_view.dart';
-import 'package:quizverse/services/database_service.dart';
 import 'package:quizverse/services/achievement_service.dart';
 import 'package:quizverse/models/achievement_model.dart';
 
@@ -14,7 +14,7 @@ class ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<ProfileView> {
   final AuthController _authController = AuthController();
-  final DatabaseService _databaseService = DatabaseService();
+  final FirestoreService _firestoreService = FirestoreService();
   final AchievementService _achievementService = AchievementService();
 
   // State untuk statistik
@@ -49,12 +49,10 @@ class _ProfileViewState extends State<ProfileView> {
     if (mounted) setState(() => _isLoadingStats = true);
 
     try {
-      final String? userIdString = await _authController.getLoggedInUserId();
-      if (userIdString == null) return;
+      final String? userId = _authController.firebaseUser?.uid;
+      if (userId == null) return;
 
-      final history = await _databaseService.getQuizHistory(
-        int.parse(userIdString),
-      );
+      final history = await _firestoreService.getQuizHistory(userId);
       if (!mounted) return;
 
       if (history.isEmpty) {
@@ -113,14 +111,14 @@ class _ProfileViewState extends State<ProfileView> {
   Future<void> _recalculateAchievements() async {
     if (mounted) setState(() => _isLoadingAchievements = true);
     try {
-      final String? userIdString = await _authController.getLoggedInUserId();
-      if (userIdString == null) {
+     final String? userId = _authController.firebaseUser?.uid;
+      if (userId == null) {
         if (mounted) setState(() => _isLoadingAchievements = false);
         return;
       }
 
       final achievements = await _achievementService.recalculateAndSaveProgress(
-        int.parse(userIdString),
+        userId,
       );
 
       if (mounted) {
