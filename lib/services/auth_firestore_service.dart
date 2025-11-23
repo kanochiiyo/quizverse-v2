@@ -74,37 +74,57 @@ class AuthFirestoreService {
       if (doc.exists && doc.data() != null) {
         return UserModel.fromMap(doc.data() as Map<String, dynamic>, uid);
       } else {
-        throw 'Data profil tidak ditemukan. Silakan login ulang.';
+        debugPrint(
+          '⚠️ User document does not exist in Firestore for uid: $uid',
+        );
+        return null;
       }
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found' || e.code == 'wrong-password') {
+        throw 'Email atau Password salah. Periksa kembali kredensial Anda.';
+      } else if (e.code == 'invalid-credential') {
         throw 'Email atau Password salah. Periksa kembali kredensial Anda.';
       }
 
       throw 'Login Gagal: ${e.message}';
     } catch (e) {
+      debugPrint('Error in signInAndFetchProfile: $e');
       rethrow;
     }
   }
 
   Future<UserModel?> checkLoginStatus() async {
-    final user = _auth.currentUser;
-    if (user == null || user.email == null) return null;
-
     try {
+      final user = _auth.currentUser;
+      if (user == null || user.email == null) {
+        debugPrint('No current user found');
+        return null;
+      }
+
+      debugPrint('Checking login status for user: ${user.uid}');
+
       DocumentSnapshot doc = await _db.collection('users').doc(user.uid).get();
 
       if (doc.exists && doc.data() != null) {
+        debugPrint('User document found in Firestore');
         return UserModel.fromMap(doc.data() as Map<String, dynamic>, user.uid);
       }
+
+      debugPrint('User document not found in Firestore');
       return null;
     } catch (e) {
-      debugPrint('Error checking login status/fetching profile: $e');
+      debugPrint('Error checking login status: $e');
       return null;
     }
   }
 
   Future<void> signOut() async {
-    await _auth.signOut();
+    try {
+      await _auth.signOut();
+      debugPrint('User signed out successfully');
+    } catch (e) {
+      debugPrint('Error signing out: $e');
+      rethrow;
+    }
   }
 }
