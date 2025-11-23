@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:quizverse/views/auth/login_view.dart';
+import 'package:quizverse/bottom_navbar.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:quizverse/services/notification_service.dart';
 import 'package:quizverse/services/navigation_service.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 
 void main() async {
-  // Bikin binding antara FLutter sama engine (diperlukan kita ada manggil fungsi sebelum runApp())
+  // Bikin binding antara Flutter sama engine (diperlukan kita ada manggil fungsi sebelum runApp())
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -46,7 +48,7 @@ class MyApp extends StatelessWidget {
     const Color backgroundColor = Color(0xFFF5F5F5);
 
     return MaterialApp(
-      // Remote untuk navigasi, karena biasanya kalo navigasi butuh context, tapi ada kalanya kita harus berpindah tapi ga punya context misalnya saat nge-tap notifikasi jadisi navigatorKey ini tinggal nyuruh pindah dari state saat ini
+      // Remote untuk navigasi
       navigatorKey: NavigationService.navigatorKey,
       title: 'QuizVerse',
 
@@ -117,8 +119,33 @@ class MyApp extends StatelessWidget {
 
         useMaterial3: true,
       ),
-      // Ketika aplikasi dibuka, arahin langsung ke halaman login
-      home: LoginView(),
+      home: const AuthWrapper(),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasData && snapshot.data != null) {
+          debugPrint("User sudah login: ${snapshot.data!.email}");
+          return BottomNavBar();
+        }
+
+        debugPrint("User belum login");
+        return const LoginView();
+      },
     );
   }
 }
