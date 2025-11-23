@@ -158,15 +158,7 @@ class _MultiplayerQuizViewState extends State<MultiplayerQuizView> {
         correctAnswers: correctAnswers,
       );
 
-      await Future.delayed(const Duration(seconds: 1));
-
-      final updatedRoom = await _multiplayerService
-          .getRoomStream(widget.room.roomId)
-          .first;
-
-      if (!mounted) return;
-
-      _navigateToLeaderboard(updatedRoom);
+      debugPrint('Quiz submitted. Waiting for other players...');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
@@ -182,7 +174,10 @@ class _MultiplayerQuizViewState extends State<MultiplayerQuizView> {
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => LeaderboardView(room: room)),
+        MaterialPageRoute(
+          builder: (context) =>
+              LeaderboardView(room: room, userAnswers: _userAnswers),
+        ),
       );
     }
   }
@@ -224,6 +219,39 @@ class _MultiplayerQuizViewState extends State<MultiplayerQuizView> {
             children: [
               _buildTimerWidget(theme),
               const SizedBox(height: 24),
+
+              if (_isSubmitting)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Menunggu pemain lain menyelesaikan quiz...',
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
               Container(
                 padding: const EdgeInsets.all(16),
@@ -364,12 +392,14 @@ class _MultiplayerQuizViewState extends State<MultiplayerQuizView> {
         ),
       ),
       child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedAnswer = answer;
-            _userAnswers[_currentIndex] = answer;
-          });
-        },
+        onTap: _isSubmitting
+            ? null
+            : () {
+                setState(() {
+                  _selectedAnswer = answer;
+                  _userAnswers[_currentIndex] = answer;
+                });
+              },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
