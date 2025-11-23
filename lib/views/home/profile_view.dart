@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:quizverse/controllers/auth_controller.dart';
 import 'package:quizverse/services/firestore_service.dart';
 import 'package:quizverse/views/auth/login_view.dart';
+import 'package:quizverse/views/home/edit_profile_view.dart';
 import 'package:quizverse/services/achievement_service.dart';
 import 'package:quizverse/models/achievement_model.dart';
 
@@ -122,7 +123,7 @@ class _ProfileViewState extends State<ProfileView> {
       final totalQuizzes = history.length;
       final totalDurationSeconds = history.fold<int>(
         0,
-        (sums, item) => sums + (item['duration'] as int? ?? 0),
+        (sum, item) => sum + (item['duration'] as int? ?? 0),
       );
       final duration = Duration(seconds: totalDurationSeconds);
 
@@ -557,6 +558,31 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
+  void _navigateToEditProfile() async {
+    if (_fullName == null || _username == null || _email == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Data profil belum dimuat')));
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProfileView(
+          fullName: _fullName!,
+          username: _username!,
+          email: _email!,
+          profilePhotoUrl: _profilePhotoUrl,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      await _loadUserProfileDirectly();
+    }
+  }
+
   Widget _buildProfileHeader(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -621,6 +647,18 @@ class _ProfileViewState extends State<ProfileView> {
               ],
             ),
           ),
+
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: _isLoadingProfile ? null : _navigateToEditProfile,
+          icon: const Icon(Icons.edit, size: 18),
+          label: const Text('Edit Profil'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            side: BorderSide(color: theme.primaryColor),
+            foregroundColor: theme.primaryColor,
+          ),
+        ),
       ],
     );
   }
