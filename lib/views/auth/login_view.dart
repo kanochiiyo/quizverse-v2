@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quizverse/bottom_navbar.dart';
 import 'package:quizverse/controllers/auth_controller.dart';
 import 'package:quizverse/views/auth/register_view.dart';
@@ -13,7 +14,6 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
-  // --- PERUBAHAN: Ganti ke _emailController ---
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final AuthController _authController = AuthController();
@@ -31,8 +31,7 @@ class _LoginViewState extends State<LoginView> {
 
   @override
   void dispose() {
-    _emailController
-        .dispose(); // Pastikan dispose dipanggil untuk controller baru
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -68,15 +67,22 @@ class _LoginViewState extends State<LoginView> {
     setState(() {
       _isLoading = true;
     });
+
     try {
-      bool loggedIn = await _authController.checkInitialLoginStatus();
-      if (mounted) {
-        if (loggedIn) {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+
+      if (firebaseUser != null) {
+        debugPrint("User sudah login: ${firebaseUser.email}");
+
+        if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => BottomNavBar()),
           );
-        } else {
+        }
+      } else {
+        debugPrint("User belum login");
+        if (mounted) {
           setState(() {
             _isLoading = false;
           });
@@ -94,7 +100,6 @@ class _LoginViewState extends State<LoginView> {
   }
 
   void _login() async {
-    // --- PERUBAHAN: Validasi menggunakan _emailController ---
     if (_emailController.text.trim().isEmpty ||
         _passwordController.text.isEmpty) {
       setState(() {
@@ -109,13 +114,15 @@ class _LoginViewState extends State<LoginView> {
     });
 
     try {
-      // --- PERUBAHAN: Panggil login dengan parameter email ---
       await _authController.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
+      debugPrint("Login berhasil untuk: ${_emailController.text.trim()}");
+
       if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => BottomNavBar()),
@@ -123,7 +130,6 @@ class _LoginViewState extends State<LoginView> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        // --- PERBAIKAN: Menangkap format error dari Controller ---
         _errorMessage = e.toString().contains('Exception:')
             ? e.toString().replaceFirst('Exception: ', '')
             : e.toString();
@@ -149,10 +155,7 @@ class _LoginViewState extends State<LoginView> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    if (_isLoading &&
-        // --- PERUBAHAN: Cek menggunakan _emailController ---
-        _emailController.text.isEmpty &&
-        _errorMessage == null) {
+    if (_isLoading && _emailController.text.isEmpty && _errorMessage == null) {
       return Scaffold(
         body: Center(
           child: Column(
@@ -187,10 +190,10 @@ class _LoginViewState extends State<LoginView> {
               const SizedBox(height: 32),
 
               TextField(
-                controller: _emailController, // --- PERUBAHAN ---
+                controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                  labelText: "Email", // --- PERUBAHAN: Label diganti ---
+                  labelText: "Email",
                   prefixIcon: Icon(Icons.email),
                 ),
                 enabled: !_isLoading,

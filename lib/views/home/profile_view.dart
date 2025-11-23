@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:quizverse/controllers/auth_controller.dart';
 import 'package:quizverse/services/firestore_service.dart';
 import 'package:quizverse/views/auth/login_view.dart';
@@ -16,32 +18,87 @@ class _ProfileViewState extends State<ProfileView> {
   final AuthController _authController = AuthController();
   final FirestoreService _firestoreService = FirestoreService();
   final AchievementService _achievementService = AchievementService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // State untuk statistik
   String? _username;
+  String? _fullName;
+  String? _email;
+  String? _profilePhotoUrl;
+  bool _isLoadingProfile = true;
+
   bool _isLoadingStats = true;
   int _totalQuizzes = 0;
   String _avgScoreString = "0%";
   String _timePlayedString = "0m";
 
-  // State untuk achievements
   List<AchievementModel> _achievements = [];
   bool _isLoadingAchievements = true;
 
   @override
   void initState() {
     super.initState();
-    _loadUsername();
+    _loadUserProfileDirectly();
     _loadStats();
     _recalculateAchievements();
   }
 
-  Future<void> _loadUsername() async {
-    final username = await _authController.getLoggedInUsername();
-    if (mounted) {
-      setState(() {
-        _username = username ?? 'Pengguna';
-      });
+  Future<void> _loadUserProfileDirectly() async {
+    if (mounted) setState(() => _isLoadingProfile = true);
+
+    try {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+
+      if (firebaseUser == null) {
+        debugPrint("Firebase user is null!");
+        if (mounted) setState(() => _isLoadingProfile = false);
+        return;
+      }
+
+      debugPrint("=== LOADING PROFILE DIRECTLY FROM FIRESTORE ===");
+      debugPrint("User UID: ${firebaseUser.uid}");
+
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .get();
+
+      if (userDoc.exists && userDoc.data() != null) {
+        final data = userDoc.data()!;
+
+        debugPrint("Firestore data found:");
+        debugPrint("Full Name: ${data['fullName']}");
+        debugPrint("Username: ${data['username']}");
+        debugPrint("Email: ${data['email']}");
+        debugPrint("Profile Photo: ${data['profilePhotoUrl']}");
+
+        if (mounted) {
+          setState(() {
+            _fullName = data['fullName'] as String?;
+            _username = data['username'] as String?;
+            _email = data['email'] as String?;
+            _profilePhotoUrl = data['profilePhotoUrl'] as String?;
+            _isLoadingProfile = false;
+          });
+        }
+
+        debugPrint("Profile loaded successfully!");
+      } else {
+        debugPrint("User document does not exist in Firestore!");
+
+        if (mounted) {
+          setState(() {
+            _email = firebaseUser.email;
+            _fullName = firebaseUser.displayName ?? "Pengguna";
+            _username = firebaseUser.email?.split('@')[0];
+            _isLoadingProfile = false;
+          });
+        }
+      }
+
+      debugPrint("===============================================");
+    } catch (e) {
+      debugPrint("Error loading user profile directly: $e");
+      if (mounted) setState(() => _isLoadingProfile = false);
     }
   }
 
@@ -49,7 +106,7 @@ class _ProfileViewState extends State<ProfileView> {
     if (mounted) setState(() => _isLoadingStats = true);
 
     try {
-      final String? userId = _authController.firebaseUser?.uid;
+      final String? userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) return;
 
       final history = await _firestoreService.getQuizHistory(userId);
@@ -62,12 +119,10 @@ class _ProfileViewState extends State<ProfileView> {
         return;
       }
 
-      // Hitung berdasarkan ada berapa data history quiz
       final totalQuizzes = history.length;
-      // Hitung berdasarkan durasi di tiap data history quiz
       final totalDurationSeconds = history.fold<int>(
         0,
-        (sum, item) => sum + (item['duration'] as int? ?? 0),
+        (sums, item) => sums + (item['duration'] as int? ?? 0),
       );
       final duration = Duration(seconds: totalDurationSeconds);
 
@@ -84,12 +139,9 @@ class _ProfileViewState extends State<ProfileView> {
 
       for (var item in history) {
         totalScore += (item['score'] as int? ?? 0);
-        // Hitung berapa skor yang didapat dari tiap data
-        // Hitung berapa soal yang dikerjakan dari tiap data
         totalQuestions += (item['total_questions'] as int? ?? 0);
       }
 
-      // Hitung rata-ratanya dan jadikan persen
       final avgScore = (totalQuestions > 0)
           ? (totalScore / totalQuestions) * 100
           : 0.0;
@@ -107,11 +159,10 @@ class _ProfileViewState extends State<ProfileView> {
     }
   }
 
-  // Method untuk cek ulang achievement user
   Future<void> _recalculateAchievements() async {
     if (mounted) setState(() => _isLoadingAchievements = true);
     try {
-     final String? userId = _authController.firebaseUser?.uid;
+      final String? userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) {
         if (mounted) setState(() => _isLoadingAchievements = false);
         return;
@@ -176,7 +227,6 @@ class _ProfileViewState extends State<ProfileView> {
     }
   }
 
-  // Method untuk show modal semua achievements
   void _showAllAchievements() {
     showModalBottomSheet(
       context: context,
@@ -210,7 +260,6 @@ class _ProfileViewState extends State<ProfileView> {
                   ],
                 ),
               ),
-
               Expanded(
                 child: ListView.builder(
                   controller: scrollController,
@@ -218,7 +267,6 @@ class _ProfileViewState extends State<ProfileView> {
                   itemCount: _achievements.length,
                   itemBuilder: (context, index) {
                     final achievement = _achievements[index];
-
                     return _buildAchievementCard(achievement, expanded: true);
                   },
                 ),
@@ -320,12 +368,9 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  // Widget section untuk menampilkan achievements
   Widget _buildAchievementsSection(BuildContext context) {
     final theme = Theme.of(context);
-    // Hitung statistik achievement menggunakan service
     final stats = _achievementService.getAchievementStats(_achievements);
-    // Filter hanya achievement yang sudah unlocked, ini buat ditampilin sebagai 3 teratas
     final unlockedAchievements = _achievements
         .where((a) => a.isUnlocked)
         .toList();
@@ -333,7 +378,6 @@ class _ProfileViewState extends State<ProfileView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header dengan tombol lihat semua
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -351,7 +395,6 @@ class _ProfileViewState extends State<ProfileView> {
         ),
         const SizedBox(height: 8),
 
-        // Card progress achievement
         Card(
           color: theme.primaryColor.withAlpha(26),
           elevation: 0,
@@ -363,7 +406,6 @@ class _ProfileViewState extends State<ProfileView> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                // Row untuk tampilkan angka unlocked dan persentase
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -384,7 +426,6 @@ class _ProfileViewState extends State<ProfileView> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                // Progress bar untuk visualisasi persentase
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: LinearProgressIndicator(
@@ -402,7 +443,6 @@ class _ProfileViewState extends State<ProfileView> {
         ),
         const SizedBox(height: 16),
 
-        // List achievements yang sudah unlocked (3 teratas)
         if (_isLoadingAchievements)
           const Center(
             child: Padding(
@@ -411,7 +451,6 @@ class _ProfileViewState extends State<ProfileView> {
             ),
           )
         else if (unlockedAchievements.isEmpty)
-          // Pesan jika belum ada achievement terbuka
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
@@ -425,7 +464,6 @@ class _ProfileViewState extends State<ProfileView> {
             ),
           )
         else
-          // Tampilkan 3 achievement terbaru yang unlocked
           ...unlockedAchievements.take(3).map((achievement) {
             return _buildAchievementCard(achievement);
           }),
@@ -433,7 +471,6 @@ class _ProfileViewState extends State<ProfileView> {
     );
   }
 
-  // Widget builder untuk achievement card
   Widget _buildAchievementCard(
     AchievementModel achievement, {
     bool expanded = false,
@@ -443,13 +480,11 @@ class _ProfileViewState extends State<ProfileView> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      // Beda warna untuk locked dan unlocked
       color: isUnlocked ? Colors.white : Colors.grey[100],
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            // Icon emoji achievement
             Container(
               width: 60,
               height: 60,
@@ -464,7 +499,6 @@ class _ProfileViewState extends State<ProfileView> {
                   achievement.icon,
                   style: TextStyle(
                     fontSize: 32,
-                    // Grayscale jika locked
                     color: isUnlocked ? null : Colors.grey[500],
                   ),
                 ),
@@ -472,7 +506,6 @@ class _ProfileViewState extends State<ProfileView> {
             ),
             const SizedBox(width: 16),
 
-            // Content (title, description, progress)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,7 +524,6 @@ class _ProfileViewState extends State<ProfileView> {
                       color: isUnlocked ? Colors.grey[700] : Colors.grey[500],
                     ),
                   ),
-                  // Tampilkan progress bar jika expanded dan belum unlocked
                   if (expanded && !isUnlocked) ...[
                     const SizedBox(height: 8),
                     ClipRRect(
@@ -506,7 +538,6 @@ class _ProfileViewState extends State<ProfileView> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Text progress (X / Y)
                     Text(
                       '${achievement.currentValue} / ${achievement.requiredValue}',
                       style: TextStyle(fontSize: 10, color: Colors.grey[600]),
@@ -516,7 +547,6 @@ class _ProfileViewState extends State<ProfileView> {
               ),
             ),
 
-            // Status icon (check untuk unlocked, lock untuk locked)
             if (isUnlocked)
               Icon(Icons.check_circle, color: theme.primaryColor, size: 28)
             else if (!expanded)
@@ -524,6 +554,74 @@ class _ProfileViewState extends State<ProfileView> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileHeader(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        const SizedBox(height: 20),
+
+        _profilePhotoUrl != null && _profilePhotoUrl!.isNotEmpty
+            ? CircleAvatar(
+                radius: 60,
+                backgroundImage: NetworkImage(_profilePhotoUrl!),
+                onBackgroundImageError: (exception, stackTrace) {
+                  debugPrint('Error loading profile image: $exception');
+                },
+                child: _isLoadingProfile
+                    ? const CircularProgressIndicator()
+                    : null,
+              )
+            : CircleAvatar(
+                radius: 60,
+                backgroundColor: theme.primaryColor.withAlpha(26),
+                child: _isLoadingProfile
+                    ? const CircularProgressIndicator()
+                    : Icon(Icons.person, size: 70, color: theme.primaryColor),
+              ),
+        const SizedBox(height: 16),
+
+        Text(
+          _isLoadingProfile ? 'Memuat...' : (_fullName ?? 'Nama Pengguna'),
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+
+        if (_username != null)
+          Text(
+            '@$_username',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+
+        if (_email != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.email_outlined, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  _email!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -536,40 +634,26 @@ class _ProfileViewState extends State<ProfileView> {
         title: const Text('Profil Pengguna'),
         automaticallyImplyLeading: false,
       ),
-
       body: RefreshIndicator(
         onRefresh: () async {
-          await Future.wait([_loadStats(), _recalculateAchievements()]);
+          await Future.wait([
+            _loadUserProfileDirectly(),
+            _loadStats(),
+            _recalculateAchievements(),
+          ]);
         },
         child: ListView(
           padding: const EdgeInsets.all(20.0),
           children: [
-            const SizedBox(height: 20),
-            // Avatar pengguna
-            CircleAvatar(
-              radius: 60,
-              backgroundColor: theme.primaryColor.withAlpha(26),
-              child: Icon(Icons.person, size: 70, color: theme.primaryColor),
-            ),
-            const SizedBox(height: 16),
-            // Username
-            Text(
-              _username ?? 'Memuat...',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            _buildProfileHeader(context),
             const SizedBox(height: 24),
-            // Section statistik quiz
             _buildStatsSection(context),
             const SizedBox(height: 24),
-            // Section achievements (NEW)
             _buildAchievementsSection(context),
             const SizedBox(height: 24),
-            // Tombol logout
             ElevatedButton.icon(
               onPressed: _logout,
+              icon: const Icon(Icons.logout),
               label: const Text('Logout'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.colorScheme.error,

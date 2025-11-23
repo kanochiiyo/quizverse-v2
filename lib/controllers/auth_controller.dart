@@ -1,27 +1,24 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:quizverse/services/auth_firestore_service.dart';
-import 'package:quizverse/models/user_model.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthController {
   final AuthFirestoreService _authService = AuthFirestoreService();
 
-  UserModel? _currentUser;
-  UserModel? get currentUser => _currentUser;
-
+  // Getter untuk akses Firebase User
   User? get firebaseUser => FirebaseAuth.instance.currentUser;
 
+  /// Login user dengan email dan password
   Future<void> login({required String email, required String password}) async {
     try {
-      _currentUser = await _authService.signInAndFetchProfile(email, password);
-      if (_currentUser == null) {
-        throw Exception("Login gagal: Data pengguna tidak dapat dimuat.");
-      }
+      await _authService.signInAndFetchProfile(email, password);
     } catch (e) {
       rethrow;
     }
   }
 
+  /// Register user baru
   Future<void> register({
     required String email,
     required String password,
@@ -38,12 +35,7 @@ class AuthController {
         profileImageFile: profileImageFile,
       );
 
-      if (firebaseUser != null) {
-        _currentUser = await _authService.signInAndFetchProfile(
-          email,
-          password,
-        );
-      } else {
+      if (firebaseUser == null) {
         throw Exception("Registrasi gagal: User tidak terbuat di Firebase.");
       }
     } catch (e) {
@@ -51,41 +43,37 @@ class AuthController {
     }
   }
 
+  /// Cek apakah user sudah login
   Future<bool> checkInitialLoginStatus() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
+
       if (user == null) {
-        _currentUser = null;
         return false;
       }
 
-      _currentUser = await _authService.signInAndFetchProfile(
-        user.email!,
-        "dummy_password_unused_for_profile_fetch",
-      );
+      // Cek apakah user masih valid di Firestore
+      final userProfile = await _authService.checkLoginStatus();
 
-      return _currentUser != null;
+      return userProfile != null;
     } catch (e) {
-      print("Error fetching profile on status check: $e");
-      _currentUser = null;
+      debugPrint("Error checking login status: $e");
       return false;
     }
   }
 
+  /// Logout user
   Future<void> logout() async {
     await _authService.signOut();
-    _currentUser = null;
   }
 
-  UserModel? getLoggedInUser() {
-    return _currentUser;
-  }
-
+  /// Helper: Get current user ID
   String? getLoggedInUserId() {
-    return _currentUser?.uid;
+    return firebaseUser?.uid;
   }
 
-  String? getLoggedInUsername() {
-    return _currentUser?.username;
+  /// Helper: Get current user email
+  String? getLoggedInEmail() {
+    return firebaseUser?.email;
   }
 }

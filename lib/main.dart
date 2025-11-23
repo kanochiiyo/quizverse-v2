@@ -40,7 +40,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Inisialisasi warna biar ga beda-beda ntar
-    const Color primaryColor = Color(0xFF00695C);
+    const Color primaryColor = Color.fromRGBO(0, 105, 92, 1);
     const Color lightPrimaryColor = Color(0xFF00897B);
     const Color accentColor = Color(0xFF4DB6AC);
     const Color backgroundColor = Color(0xFFF5F5F5);

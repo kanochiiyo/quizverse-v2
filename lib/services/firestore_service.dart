@@ -3,23 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:quizverse/models/achievement_model.dart';
 
 class FirestoreService {
-  // Singleton pattern
   static final FirestoreService _instance = FirestoreService._internal();
   factory FirestoreService() => _instance;
   FirestoreService._internal();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Collection references
   CollectionReference get _usersCollection => _firestore.collection('users');
   CollectionReference get _quizHistoryCollection =>
       _firestore.collection('quiz_history');
   CollectionReference get _achievementsCollection =>
       _firestore.collection('user_achievements');
 
-  // ==================== QUIZ HISTORY ====================
-
-  /// Simpan hasil quiz ke Firestore
   Future<String> saveQuizResult({
     required String userId,
     required String category,
@@ -58,7 +53,6 @@ class FirestoreService {
     }
   }
 
-  /// Ambil riwayat quiz berdasarkan user ID
   Future<List<Map<String, dynamic>>> getQuizHistory(String userId) async {
     try {
       final querySnapshot = await _quizHistoryCollection
@@ -68,9 +62,8 @@ class FirestoreService {
 
       return querySnapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id; // Tambahkan document ID
+        data['id'] = doc.id;
 
-        // Convert Timestamp to String untuk kompatibilitas
         if (data['quiz_date'] != null && data['quiz_date'] is Timestamp) {
           data['quiz_date'] = (data['quiz_date'] as Timestamp)
               .toDate()
@@ -85,7 +78,6 @@ class FirestoreService {
     }
   }
 
-  /// Ambil detail history item berdasarkan document ID
   Future<Map<String, dynamic>?> getHistoryItemById(String docId) async {
     try {
       final docSnapshot = await _quizHistoryCollection.doc(docId).get();
@@ -94,7 +86,6 @@ class FirestoreService {
         final data = docSnapshot.data() as Map<String, dynamic>;
         data['id'] = docSnapshot.id;
 
-        // Convert Timestamp to String
         if (data['quiz_date'] != null && data['quiz_date'] is Timestamp) {
           data['quiz_date'] = (data['quiz_date'] as Timestamp)
               .toDate()
@@ -110,9 +101,6 @@ class FirestoreService {
     }
   }
 
-  // ==================== ACHIEVEMENTS ====================
-
-  /// Inisialisasi achievements untuk user baru
   Future<void> initializeUserAchievements(
     String userId,
     List<AchievementModel> allAchievements,
@@ -125,18 +113,14 @@ class FirestoreService {
           '${userId}_${achievement.id}',
         );
 
-        batch.set(
-          docRef,
-          {
-            'user_id': userId,
-            'achievement_id': achievement.id,
-            'current_value': 0,
-            'is_unlocked': false,
-            'unlocked_at': null,
-            'created_at': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        ); // merge: true untuk tidak overwrite jika sudah ada
+        batch.set(docRef, {
+          'user_id': userId,
+          'achievement_id': achievement.id,
+          'current_value': 0,
+          'is_unlocked': false,
+          'unlocked_at': null,
+          'created_at': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       }
 
       await batch.commit();
@@ -149,7 +133,6 @@ class FirestoreService {
     }
   }
 
-  /// Ambil achievements user
   Future<List<AchievementModel>> getUserAchievements(
     String userId,
     List<AchievementModel> allAchievements,
@@ -159,20 +142,17 @@ class FirestoreService {
           .where('user_id', isEqualTo: userId)
           .get();
 
-      // Jika belum ada data, inisialisasi dulu
       if (querySnapshot.docs.isEmpty) {
         await initializeUserAchievements(userId, allAchievements);
         return getUserAchievements(userId, allAchievements);
       }
 
-      // Map data dari Firestore
       final achievementsMap = <String, Map<String, dynamic>>{};
       for (var doc in querySnapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
         achievementsMap[data['achievement_id']] = data;
       }
 
-      // Gabungkan dengan template
       return allAchievements.map((template) {
         final savedData = achievementsMap[template.id];
 
@@ -194,7 +174,6 @@ class FirestoreService {
     }
   }
 
-  /// Simpan/update achievements user
   Future<void> saveUserAchievements(
     String userId,
     List<AchievementModel> achievements,
@@ -227,14 +206,10 @@ class FirestoreService {
     }
   }
 
-  // ==================== UTILITY METHODS ====================
-
-  /// Delete all user data (untuk testing atau delete account)
   Future<void> deleteUserData(String userId) async {
     try {
       final batch = _firestore.batch();
 
-      // Delete quiz history
       final historyDocs = await _quizHistoryCollection
           .where('user_id', isEqualTo: userId)
           .get();
@@ -242,7 +217,6 @@ class FirestoreService {
         batch.delete(doc.reference);
       }
 
-      // Delete achievements
       final achievementDocs = await _achievementsCollection
           .where('user_id', isEqualTo: userId)
           .get();
@@ -258,7 +232,6 @@ class FirestoreService {
     }
   }
 
-  /// Get user statistics
   Future<Map<String, dynamic>> getUserStatistics(String userId) async {
     try {
       final history = await getQuizHistory(userId);

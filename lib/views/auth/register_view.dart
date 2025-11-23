@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:quizverse/controllers/auth_controller.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
 class RegisterView extends StatefulWidget {

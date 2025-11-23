@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:quizverse/models/user_model.dart';
 import 'package:quizverse/services/cloudinary_service.dart';
 
@@ -98,7 +99,7 @@ class AuthFirestoreService {
       }
       return null;
     } catch (e) {
-      print('Error checking login status/fetching profile: $e');
+      debugPrint('Error checking login status/fetching profile: $e');
       return null;
     }
   }
