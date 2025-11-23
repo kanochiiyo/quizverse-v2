@@ -260,6 +260,7 @@ class MultiplayerService {
     required int userCorrectAnswers,
     required int userRank,
     required int duration,
+    required String? userAnswersJson,
   }) async {
     try {
       final historyRef = _firestore.collection('quiz_history').doc();
@@ -272,6 +273,7 @@ class MultiplayerService {
         'duration': duration,
         'total_questions': room.questionAmount,
         'quiz_data_json': room.quizDataJson,
+        'user_answers_json': userAnswersJson,
         'quiz_date': FieldValue.serverTimestamp(),
         'created_at': FieldValue.serverTimestamp(),
 

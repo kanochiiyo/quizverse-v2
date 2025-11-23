@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:confetti/confetti.dart';
@@ -6,8 +8,13 @@ import 'package:quizverse/services/multiplayer_service.dart';
 
 class LeaderboardView extends StatefulWidget {
   final RoomModel room;
+  final Map<int, String?> userAnswers;
 
-  const LeaderboardView({super.key, required this.room});
+  const LeaderboardView({
+    super.key,
+    required this.room,
+    required this.userAnswers,
+  });
 
   @override
   State<LeaderboardView> createState() => _LeaderboardViewState();
@@ -16,10 +23,16 @@ class LeaderboardView extends StatefulWidget {
 class _LeaderboardViewState extends State<LeaderboardView> {
   final MultiplayerService _multiplayerService = MultiplayerService();
   late ConfettiController _confettiController;
+
   List<RoomParticipant> _leaderboard = [];
   int _userRank = 0;
   RoomParticipant? _currentUserData;
   bool _isSavingHistory = false;
+  bool _historySaved = false;
+  bool _confettiPlayed = false;
+
+  StreamSubscription<RoomModel>? _roomSubscription;
+  RoomModel? _latestRoom;
 
   @override
   void initState() {
@@ -27,12 +40,32 @@ class _LeaderboardViewState extends State<LeaderboardView> {
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 2),
     );
-    _prepareLeaderboard();
-    _saveHistory();
+
+    _latestRoom = widget.room;
+    _prepareLeaderboard(widget.room);
+
+    _listenToRoomUpdates();
   }
 
-  void _prepareLeaderboard() {
-    _leaderboard = _multiplayerService.getLeaderboard(widget.room);
+  void _listenToRoomUpdates() {
+    _roomSubscription = _multiplayerService
+        .getRoomStream(widget.room.roomId)
+        .listen((updatedRoom) {
+          if (!mounted) return;
+
+          setState(() {
+            _latestRoom = updatedRoom;
+            _prepareLeaderboard(updatedRoom);
+          });
+
+          if (updatedRoom.status == RoomStatus.finished && !_historySaved) {
+            _saveHistory(updatedRoom);
+          }
+        });
+  }
+
+  void _prepareLeaderboard(RoomModel room) {
+    _leaderboard = _multiplayerService.getLeaderboard(room);
 
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId != null) {
@@ -42,16 +75,18 @@ class _LeaderboardViewState extends State<LeaderboardView> {
         orElse: () => _leaderboard.first,
       );
 
-      if (_userRank <= 3 && _userRank > 0) {
+      if (_userRank <= 3 && _userRank > 0 && !_confettiPlayed) {
+        _confettiPlayed = true;
         Future.delayed(const Duration(milliseconds: 500), () {
-          _confettiController.play();
+          if (mounted) _confettiController.play();
         });
       }
     }
   }
 
-  Future<void> _saveHistory() async {
-    if (_isSavingHistory) return;
+  Future<void> _saveHistory(RoomModel finalRoom) async {
+    if (_isSavingHistory || _historySaved) return;
+
     setState(() => _isSavingHistory = true);
 
     try {
@@ -59,20 +94,38 @@ class _LeaderboardViewState extends State<LeaderboardView> {
       if (userId == null || _currentUserData == null) return;
 
       final quizDuration =
-          widget.room.finishedAt != null && widget.room.startedAt != null
-          ? widget.room.finishedAt!.difference(widget.room.startedAt!).inSeconds
+          finalRoom.finishedAt != null && finalRoom.startedAt != null
+          ? finalRoom.finishedAt!.difference(finalRoom.startedAt!).inSeconds
           : 0;
+
+      String? answersJson;
+      try {
+        final Map<String, String?> stringKeyedAnswers = widget.userAnswers.map((
+          key,
+          value,
+        ) {
+          return MapEntry(key.toString(), value);
+        });
+        answersJson = jsonEncode(stringKeyedAnswers);
+      } catch (e) {
+        debugPrint("Gagal encode user answers ke JSON: $e");
+      }
 
       await _multiplayerService.saveMultiplayerHistory(
         userId: userId,
-        room: widget.room,
+        room: finalRoom,
         userScore: _currentUserData!.score,
         userCorrectAnswers: _currentUserData!.correctAnswers,
         userRank: _userRank,
         duration: quizDuration,
+        userAnswersJson: answersJson,
       );
 
-      debugPrint('Multiplayer history saved');
+      debugPrint('Multiplayer history saved successfully');
+
+      setState(() {
+        _historySaved = true;
+      });
     } catch (e) {
       debugPrint('Error saving history: $e');
     } finally {
@@ -85,6 +138,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
   @override
   void dispose() {
     _confettiController.dispose();
+    _roomSubscription?.cancel();
     super.dispose();
   }
 
@@ -93,141 +147,216 @@ class _LeaderboardViewState extends State<LeaderboardView> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Stack(
-      children: [
-        Scaffold(
-          appBar: AppBar(
-            title: const Text('Leaderboard'),
-            automaticallyImplyLeading: false,
-          ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Icon(
-                  Icons.emoji_events,
-                  size: 80,
-                  color: _userRank == 1
-                      ? Colors.amber
-                      : _userRank == 2
-                      ? Colors.grey[400]
-                      : _userRank == 3
-                      ? Colors.brown[300]
-                      : colorScheme.primary,
-                ),
-                const SizedBox(height: 16),
+    final displayRoom = _latestRoom ?? widget.room;
 
-                Text(
-                  _userRank == 1
-                      ? '🎉 Selamat, Anda Juara! 🎉'
-                      : _userRank <= 3
-                      ? '🎊 Hebat! Posisi $_userRank 🎊'
-                      : 'Quiz Selesai!',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.primary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-
-                // User Stats Card
-                if (_currentUserData != null)
-                  Card(
-                    color: colorScheme.primary.withOpacity(0.1),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
+    return WillPopScope(
+      onWillPop: () async {
+        return displayRoom.status == RoomStatus.finished;
+      },
+      child: Stack(
+        children: [
+          Scaffold(
+            appBar: AppBar(
+              title: const Text('Leaderboard'),
+              automaticallyImplyLeading:
+                  displayRoom.status == RoomStatus.finished,
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (displayRoom.status != RoomStatus.finished)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildStatItem(
-                                'Peringkat',
-                                '#$_userRank',
-                                Icons.military_tech,
-                              ),
-                              _buildStatItem(
-                                'Skor',
-                                '${_currentUserData!.score}',
-                                Icons.star,
-                              ),
-                              _buildStatItem(
-                                'Benar',
-                                '${_currentUserData!.correctAnswers}/${widget.room.questionAmount}',
-                                Icons.check_circle,
-                              ),
-                            ],
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.orange.shade700,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Menunggu pemain lain...',
+                                  style: TextStyle(
+                                    color: Colors.orange.shade700,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Ranking akan berubah saat semua pemain selesai',
+                                  style: TextStyle(
+                                    color: Colors.orange.shade700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
+
+                  Icon(
+                    Icons.emoji_events,
+                    size: 80,
+                    color: _userRank == 1
+                        ? Colors.amber
+                        : _userRank == 2
+                        ? Colors.grey[400]
+                        : _userRank == 3
+                        ? Colors.brown[300]
+                        : colorScheme.primary,
                   ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
-                Text(
-                  'Ranking Pemain',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  Text(
+                    _userRank == 1
+                        ? '🎉 Selamat, Anda Juara! 🎉'
+                        : _userRank <= 3
+                        ? '🎊 Hebat! Posisi $_userRank 🎊'
+                        : 'Quiz Selesai!',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.primary,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 8),
 
-                if (_leaderboard.length >= 3) _buildPodium(),
-                const SizedBox(height: 16),
+                  if (_currentUserData != null)
+                    Card(
+                      color: colorScheme.primary.withOpacity(0.1),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildStatItem(
+                                  'Peringkat',
+                                  '#$_userRank',
+                                  Icons.military_tech,
+                                ),
+                                _buildStatItem(
+                                  'Skor',
+                                  '${_currentUserData!.score}',
+                                  Icons.star,
+                                ),
+                                _buildStatItem(
+                                  'Benar',
+                                  '${_currentUserData!.correctAnswers}/${displayRoom.questionAmount}',
+                                  Icons.check_circle,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
 
-                ..._leaderboard.asMap().entries.map((entry) {
-                  final rank = entry.key + 1;
-                  final participant = entry.value;
-                  final isCurrentUser =
-                      participant.userId ==
-                      FirebaseAuth.instance.currentUser?.uid;
-
-                  return _buildLeaderboardCard(
-                    rank: rank,
-                    participant: participant,
-                    isCurrentUser: isCurrentUser,
-                    theme: theme,
-                  );
-                }).toList(),
-
-                const SizedBox(height: 24),
-
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.popUntil(context, (route) => route.isFirst);
-                  },
-                  icon: const Icon(Icons.home),
-                  label: const Text('Kembali ke Home'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  Text(
+                    'Ranking Pemain',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+
+                  if (_leaderboard.length >= 3) _buildPodium(displayRoom),
+                  const SizedBox(height: 16),
+
+                  ..._leaderboard.asMap().entries.map((entry) {
+                    final rank = entry.key + 1;
+                    final participant = entry.value;
+                    final isCurrentUser =
+                        participant.userId ==
+                        FirebaseAuth.instance.currentUser?.uid;
+
+                    return _buildLeaderboardCard(
+                      rank: rank,
+                      participant: participant,
+                      isCurrentUser: isCurrentUser,
+                      theme: theme,
+                      room: displayRoom,
+                    );
+                  }).toList(),
+
+                  const SizedBox(height: 24),
+
+                  if (displayRoom.status == RoomStatus.finished)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.popUntil(context, (route) => route.isFirst);
+                      },
+                      icon: const Icon(Icons.home),
+                      label: const Text('Kembali ke Home'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.grey[600]),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Tombol akan muncul setelah semua pemain selesai',
+                              style: TextStyle(color: Colors.grey[600]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              shouldLoop: false,
+              numberOfParticles: 30,
+              gravity: 0.3,
+              emissionFrequency: 0.05,
+              colors: const [
+                Colors.green,
+                Colors.blue,
+                Colors.pink,
+                Colors.orange,
+                Colors.purple,
+                Colors.amber,
               ],
             ),
           ),
-        ),
-        Align(
-          alignment: Alignment.topCenter,
-          child: ConfettiWidget(
-            confettiController: _confettiController,
-            blastDirectionality: BlastDirectionality.explosive,
-            shouldLoop: false,
-            numberOfParticles: 30,
-            gravity: 0.3,
-            emissionFrequency: 0.05,
-            colors: const [
-              Colors.green,
-              Colors.blue,
-              Colors.pink,
-              Colors.orange,
-              Colors.purple,
-              Colors.amber,
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -246,7 +375,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
     );
   }
 
-  Widget _buildPodium() {
+  Widget _buildPodium(RoomModel room) {
     final first = _leaderboard[0];
     final second = _leaderboard.length > 1 ? _leaderboard[1] : null;
     final third = _leaderboard.length > 2 ? _leaderboard[2] : null;
@@ -349,6 +478,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
     required RoomParticipant participant,
     required bool isCurrentUser,
     required ThemeData theme,
+    required RoomModel room,
   }) {
     Color rankColor;
     IconData rankIcon;
@@ -437,7 +567,7 @@ class _LeaderboardViewState extends State<LeaderboardView> {
           ],
         ),
         subtitle: Text(
-          '${participant.correctAnswers}/${widget.room.questionAmount} benar',
+          '${participant.correctAnswers}/${room.questionAmount} benar',
           style: const TextStyle(fontSize: 12),
         ),
         trailing: Column(
