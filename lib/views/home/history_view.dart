@@ -22,8 +22,7 @@ class _HistoryViewState extends State<HistoryView> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  // Filter state
-  String _selectedFilter = 'all'; // all, single, multi
+  String _selectedFilter = 'all';
 
   @override
   void initState() {
@@ -80,7 +79,6 @@ class _HistoryViewState extends State<HistoryView> {
     final query = _searchController.text.toLowerCase();
 
     var filtered = _quizHistory.where((item) {
-      // Filter berdasarkan mode (single/multi)
       final isMultiplayer = item['is_multiplayer'] as bool? ?? false;
 
       bool modeMatch = true;
@@ -92,7 +90,6 @@ class _HistoryViewState extends State<HistoryView> {
 
       if (!modeMatch) return false;
 
-      // Filter berdasarkan search query
       if (query.isEmpty) return true;
 
       final category = (item['category'] as String?)?.toLowerCase() ?? '';
@@ -150,7 +147,6 @@ class _HistoryViewState extends State<HistoryView> {
       ),
       body: Column(
         children: [
-          // Search bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
@@ -174,7 +170,6 @@ class _HistoryViewState extends State<HistoryView> {
             ),
           ),
 
-          // Filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -333,12 +328,10 @@ class _HistoryViewState extends State<HistoryView> {
     final userRank = historyItem['user_rank'] as int?;
     final multiplayerScore = historyItem['multiplayer_score'] as int?;
 
-    // Location data (dipakai baik untuk single maupun multiplayer)
     final address = historyItem['address'] as String?;
     final latitude = historyItem['latitude'] as double?;
     final longitude = historyItem['longitude'] as double?;
 
-    // Determine difficulty color
     Color difficultyColor;
     switch (difficulty?.toLowerCase()) {
       case 'easy':
@@ -383,7 +376,6 @@ class _HistoryViewState extends State<HistoryView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: Category + Mode Badge
               Row(
                 children: [
                   Expanded(
@@ -395,7 +387,7 @@ class _HistoryViewState extends State<HistoryView> {
                       ),
                     ),
                   ),
-                  // Mode badge
+
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -441,10 +433,8 @@ class _HistoryViewState extends State<HistoryView> {
               ),
               const SizedBox(height: 12),
 
-              // Info row: Difficulty + Date
               Row(
                 children: [
-                  // Difficulty chip
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -472,7 +462,6 @@ class _HistoryViewState extends State<HistoryView> {
                   ),
                   const SizedBox(width: 8),
 
-                  // Date
                   Expanded(
                     child: Row(
                       children: [
@@ -500,7 +489,6 @@ class _HistoryViewState extends State<HistoryView> {
 
               const SizedBox(height: 12),
 
-              // Location info (dipakai untuk semua mode)
               if (address != null && address.isNotEmpty) ...[
                 Row(
                   children: [
@@ -534,16 +522,13 @@ class _HistoryViewState extends State<HistoryView> {
               const Divider(height: 1),
               const SizedBox(height: 12),
 
-              // Bottom section: Score + Additional info
               Row(
                 children: [
-                  // Score section
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (isMultiplayer) ...[
-                          // Multiplayer score + rank
                           Row(
                             children: [
                               const Icon(
@@ -593,7 +578,6 @@ class _HistoryViewState extends State<HistoryView> {
                               ),
                             ),
                         ] else ...[
-                          // Single player score
                           Row(
                             children: [
                               Icon(
@@ -624,7 +608,6 @@ class _HistoryViewState extends State<HistoryView> {
                     ),
                   ),
 
-                  // Duration chip
                   if (durationInSeconds != null && durationInSeconds > 0)
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -654,7 +637,6 @@ class _HistoryViewState extends State<HistoryView> {
                 ],
               ),
 
-              // Detail hint
               if (historyItem['quiz_data_json'] != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),

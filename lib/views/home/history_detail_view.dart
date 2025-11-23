@@ -19,19 +19,17 @@ class _HistoryDetailViewState extends State<HistoryDetailView> {
   @override
   void initState() {
     super.initState();
-    // Ambil history data
+
     _parseHistoryData();
   }
 
   void _parseHistoryData() {
-    // State buat ditampilin nanti sebagai temporary
     List<QuizModel> tempQuestions = [];
     Map<String, String?> tempAnswers = {};
 
     final String? questionsJson = widget.historyItem['quiz_data_json'];
     if (questionsJson != null) {
       try {
-        // Decode JSON soal
         final List<dynamic> decodedList = jsonDecode(questionsJson);
         tempQuestions = decodedList
             .map((item) => QuizModel.fromJson(item))
@@ -44,7 +42,6 @@ class _HistoryDetailViewState extends State<HistoryDetailView> {
     final String? answersJson = widget.historyItem['user_answers_json'];
     if (answersJson != null) {
       try {
-        // Decode JSON jawaban
         final Map<String, dynamic> decodedMap = jsonDecode(answersJson);
         tempAnswers = decodedMap.map((key, value) {
           return MapEntry(key, value as String?);
@@ -55,14 +52,12 @@ class _HistoryDetailViewState extends State<HistoryDetailView> {
     }
 
     setState(() {
-      // Set state dari data yang sudah didecode ke temporary variabel
       _questions = tempQuestions;
       _userAnswers = tempAnswers;
       _isLoading = false;
     });
   }
 
-  // Widget helper untuk menampilkan tile jawaban
   Widget _buildAnswerTile(String answer, Color color, IconData icon) {
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -93,12 +88,10 @@ class _HistoryDetailViewState extends State<HistoryDetailView> {
       appBar: AppBar(title: Text(category)),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          // Tampilkan dalam bentuk ListView
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _questions.length,
               itemBuilder: (context, index) {
-                // Tampilkan per soal (otomatis looping)
                 final question = _questions[index];
 
                 final userAnswer = _userAnswers[index.toString()];
@@ -134,7 +127,7 @@ class _HistoryDetailViewState extends State<HistoryDetailView> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        // Cek jawaban user
+
                         if (userAnswer == null)
                           _buildAnswerTile(
                             "(Tidak dijawab)",
@@ -154,7 +147,6 @@ class _HistoryDetailViewState extends State<HistoryDetailView> {
                             Icons.cancel_outlined,
                           ),
 
-                        // Hanya tampilkan kalau jawaban user salah
                         if (!isCorrect) ...[
                           const SizedBox(height: 12),
                           Text(

@@ -159,7 +159,6 @@ class _MultiplayerQuizViewState extends State<MultiplayerQuizView> {
         }
       }
 
-      // Kirim score beserta data lokasi
       await _multiplayerService.updateParticipantScore(
         roomId: widget.room.roomId,
         userId: userId,

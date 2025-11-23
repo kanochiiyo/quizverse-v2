@@ -5,7 +5,6 @@ import 'package:quizverse/services/firestore_service.dart';
 class AchievementService {
   final FirestoreService _firestoreService = FirestoreService();
 
-  // Getter template List Achievement saat ini yang tersedia
   List<AchievementModel> get allAchievements => [
     AchievementModel(
       id: 'first_quiz',
@@ -54,7 +53,7 @@ class AchievementService {
       title: 'Explorer',
       description: 'Coba semua kategori quiz',
       icon: '🗺️',
-      requiredValue: 24, // Total kategori dari API
+      requiredValue: 24,
     ),
     AchievementModel(
       id: 'speed_demon',
@@ -72,7 +71,6 @@ class AchievementService {
     ),
   ];
 
-  // Ambil user achievement dari Firestore
   Future<List<AchievementModel>> getUserAchievements(String userId) async {
     try {
       final achievements = await _firestoreService.getUserAchievements(
@@ -86,36 +84,29 @@ class AchievementService {
     }
   }
 
-  // Kalkulasi ulang progress user
   Future<List<AchievementModel>> recalculateAndSaveProgress(
     String userId,
   ) async {
     try {
-      // Ambil riwayat quiz yang udah diselesaikan oleh user
       final history = await _firestoreService.getQuizHistory(userId);
 
-      // Ambil dulu achievement yang user udah punya dan juga progressnya
       final savedAchievements = await getUserAchievements(userId);
 
       final finalAchievements = <AchievementModel>[];
 
-      // Update berdasarkan data yang udah diambil tadi
       for (var template in allAchievements) {
-        // Kita bikin variabel saved
         final saved = savedAchievements.firstWhere(
           (a) => a.id == template.id,
-          orElse: () => template, // Gunakan template jika tidak ada
+          orElse: () => template,
         );
 
-        // Kalo udah ke-unlocked, skip aja
         if (saved.isUnlocked) {
           finalAchievements.add(saved);
-          continue; // Lanjut ke achievement berikutnya
+          continue;
         }
 
-        // Untuk update nilainya
         int currentValue = 0;
-        // Ini untuk achievement tentang berapa quiz yang udah diselesaikan
+
         switch (template.id) {
           case 'first_quiz':
           case 'quiz_5':
@@ -124,7 +115,7 @@ class AchievementService {
           case 'quiz_100':
             currentValue = history.length;
             break;
-          // Ini untuk achievement tentang berapa skor sempurna yang didapatkan user
+
           case 'perfect_score':
           case 'perfect_5':
             currentValue = history.where((h) {
@@ -135,7 +126,6 @@ class AchievementService {
             }).length;
             break;
 
-          // Ini untuk achievement tentang jumlah quiz unik yang udah dikerjakan oleh user
           case 'all_categories':
             final uniqueCategories = history
                 .map((h) => h['category'] as String?)
@@ -145,7 +135,6 @@ class AchievementService {
             currentValue = uniqueCategories;
             break;
 
-          // Ini untuk achievement tentang kecepatan user dalam mengerjakan quiz
           case 'speed_demon':
             currentValue = history.where((h) {
               final duration = h['duration'] as int? ?? 0;
@@ -153,7 +142,6 @@ class AchievementService {
             }).length;
             break;
 
-          // Ini untuk achievement tentang berapa hard quiz yang udah diselesaikan oleh user
           case 'hard_mode':
             currentValue = history.where((h) {
               final difficulty = h['difficulty'] as String? ?? '';
@@ -162,10 +150,8 @@ class AchievementService {
             break;
         }
 
-        // Apakah setelah dicek current value udah memenuhi required value
         final bool isNowUnlocked = currentValue >= template.requiredValue;
 
-        // Update progress
         finalAchievements.add(
           template.copyWith(
             currentValue: currentValue,
@@ -175,7 +161,6 @@ class AchievementService {
         );
       }
 
-      // Simpan ke Firestore
       await _firestoreService.saveUserAchievements(userId, finalAchievements);
 
       return finalAchievements;
@@ -193,13 +178,12 @@ class AchievementService {
 
     final newlyUnlocked = <AchievementModel>[];
 
-    // Looping untuk membandingkan progress yang lama dengan yang baru
     for (var i = 0; i < currentAchievements.length; i++) {
       final current = currentAchievements[i];
 
       final previous = previousAchievements.firstWhere(
         (a) => a.id == current.id,
-        orElse: () => current, // fallback
+        orElse: () => current,
       );
 
       if (current.isUnlocked && !previous.isUnlocked) {

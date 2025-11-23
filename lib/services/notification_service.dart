@@ -5,17 +5,14 @@ import 'package:quizverse/views/home/history_detail_view.dart';
 import 'package:flutter/material.dart';
 
 class NotificationService {
-  // Ini singleton biar cuman dibuat sekali selama aplikasinya jalan
   static final NotificationService _notificationService =
       NotificationService._internal();
   factory NotificationService() => _notificationService;
   NotificationService._internal();
 
-  // Inisialisasi pertama
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
-  // Pertama kali dipanggil saat aplikasi dijalankan
   Future<void> initNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -29,31 +26,25 @@ class NotificationService {
     );
   }
 
-  // Jika misalnya user klik notifikasi (callback)
   @pragma('vm:entry-point')
   static void onNotificationTap(
     NotificationResponse notificationResponse,
   ) async {
-    // Ambil payload dulu (id unik tiap notifikasi)
     final String? payload = notificationResponse.payload;
 
     if (payload == null) return;
 
     if (payload.startsWith('history_id_')) {
       try {
-        // Extract historyId dari payload
-        // Format payload: "history_id_abc123def456"
         final String historyId = payload.replaceFirst('history_id_', '');
 
         final firestoreService = FirestoreService();
 
-        // historyId sudah dalam bentuk String (document ID dari Firestore)
         final historyItem = await firestoreService.getHistoryItemById(
           historyId,
         );
 
         if (historyItem != null) {
-          // Arahin ke HistoryDetailView buat ditampilkan bersama dengan parameter historyItem yang udah diget berdasarkan historyId
           NavigationService.navigatorKey.currentState?.push(
             MaterialPageRoute(
               builder: (context) => HistoryDetailView(historyItem: historyItem),
@@ -95,20 +86,19 @@ class NotificationService {
           ticker: 'ticker',
         );
 
-    // agar 1 notifikasi bisa dipake semua
     const NotificationDetails notificationDetails = NotificationDetails(
       android: androidNotificationDetails,
       iOS: DarwinNotificationDetails(badgeNumber: 1),
     );
 
-        final int notificationId = historyId.hashCode;
+    final int notificationId = historyId.hashCode;
 
     await flutterLocalNotificationsPlugin.show(
-      notificationId, // Ubah dari historyId (String) ke notificationId (int)
+      notificationId,
       "Kuis Selesai!",
       "Skor Anda: $score dari $totalQuestions. Klik untuk melihat riwayat.",
       notificationDetails,
-      payload: 'history_id_$historyId', // Payload tetap String
+      payload: 'history_id_$historyId',
     );
   }
 }

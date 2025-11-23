@@ -144,8 +144,6 @@ class RoomParticipant {
   final int correctAnswers;
   final bool isReady;
   final bool hasFinished;
-
-  // ⬇️ Tambahan buat LBS
   final double? latitude;
   final double? longitude;
   final String? address;

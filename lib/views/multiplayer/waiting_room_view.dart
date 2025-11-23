@@ -31,7 +31,6 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
   RoomModel? _currentRoom;
   bool _isStarting = false;
 
-  // Tambahan untuk lokasi
   Position? _currentPosition;
   String? _currentAddress;
   bool _isLoadingLocation = false;
@@ -40,10 +39,9 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
   void initState() {
     super.initState();
     _listenToRoom();
-    _getCurrentLocation(); // Ambil lokasi saat masuk waiting room
+    _getCurrentLocation();
   }
 
-  // Fungsi baru untuk mendapatkan lokasi
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoadingLocation = true);
 
@@ -88,7 +86,6 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
           "Location obtained: ${position.latitude}, ${position.longitude}",
         );
 
-        // Ambil address dari koordinat
         try {
           List<geocoding.Placemark> placemarks = await geocoding
               .placemarkFromCoordinates(position.latitude, position.longitude);
@@ -359,7 +356,7 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
                         Icons.category,
                         'Kategori',
                         _currentRoom!.categoryName,
-                        ellipsize: true, // Tambahkan ellipsis
+                        ellipsize: true,
                       ),
                       _buildInfoRow(
                         Icons.layers,
@@ -377,7 +374,6 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
               ),
               const SizedBox(height: 16),
 
-              // Tampilkan status lokasi
               if (_isLoadingLocation)
                 Card(
                   color: Colors.blue.shade50,

@@ -629,25 +629,6 @@ class _ProfileViewState extends State<ProfileView> {
             textAlign: TextAlign.center,
           ),
 
-        if (_email != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.email_outlined, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  _email!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-
         const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: _isLoadingProfile ? null : _navigateToEditProfile,

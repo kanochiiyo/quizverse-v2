@@ -16,7 +16,6 @@ class QuizController {
     required String category,
     required String difficulty,
   }) async {
-    // Get quiz data from API service
     return await _service.fetchQuizData(
       amount: amount,
       category: category,

@@ -18,7 +18,6 @@ class QuizView extends StatefulWidget {
 }
 
 class _QuizViewState extends State<QuizView> {
-  // State controller
   final FirestoreService _firestoreService = FirestoreService();
   final AuthController _authController = AuthController();
   late ConfettiController _confettiController;
@@ -38,32 +37,28 @@ class _QuizViewState extends State<QuizView> {
   void initState() {
     super.initState();
     if (widget.questions.isNotEmpty) {
-      // Kalo soal berhasil diambil, panggil fungsi untuk mengambil tiap item soal
       _setupQuestion();
     }
-    // Simpan kapan quiz dimulai dengan fungsi DateTime
+
     _quizStartTime = DateTime.now();
-    // Mulai timer
+
     _startQuestionTimer();
 
-    // Setup controller conffeti ketika user selesai submit quiz
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 1),
     );
   }
 
   void _setupQuestion() {
-    // Panggil soal sesuai index
     final q = widget.questions[_curIndex];
-    // Acak jawaban yang didapat dari API, ambil dulu data jawaban benar dan salah, lalu acak
+
     _shuffledAnswers = [q.correctAnswer, ...q.incorrectAnswers];
     _shuffledAnswers.shuffle();
-    // Perbarui jawaban user berdasarkan jawaban di soal sesuai index
+
     selectedAnswer = _userAnswers[_curIndex];
   }
 
   void nextQuestion() {
-    // Kalo soalnya masih ada, increment index dan build soal lagi, jangan lupa ulang lagi timernya dengan manggil startQuestionTimer
     if (_curIndex < widget.questions.length - 1) {
       setState(() {
         _curIndex++;
@@ -119,9 +114,6 @@ class _QuizViewState extends State<QuizView> {
       }
     }
   }
-
-  // BAGIAN submitQuiz() yang diperbaiki
-  // Letakkan di lib/views/home/quiz_view.dart
 
   void submitQuiz() async {
     final quizDuration = DateTime.now().difference(_quizStartTime);
@@ -192,7 +184,6 @@ class _QuizViewState extends State<QuizView> {
       debugPrint("Gagal encode user answers ke JSON: $e");
     }
 
-    // Variable untuk menyimpan historyId
     String? savedHistoryId;
 
     try {
@@ -233,8 +224,6 @@ class _QuizViewState extends State<QuizView> {
       setState(() => _isSubmitting = false);
     }
 
-    // ========== KIRIM NOTIFIKASI ==========
-    // Kirim notifikasi SETELAH save berhasil dan SEBELUM dialog
     if (savedHistoryId != null) {
       try {
         await NotificationService().showQuizResultNotification(
@@ -245,12 +234,10 @@ class _QuizViewState extends State<QuizView> {
         debugPrint("✅ Notification sent successfully!");
       } catch (notifError) {
         debugPrint("❌ Error sending notification: $notifError");
-        // Tidak throw error agar dialog tetap muncul
       }
     } else {
       debugPrint("⚠️ Cannot send notification: historyId is null");
     }
-    // ======================================
 
     _confettiController.play();
 
@@ -274,7 +261,6 @@ class _QuizViewState extends State<QuizView> {
     );
   }
 
-  // Widget helper untuk list jawaban
   Widget _buildAnswerTile(String answer) {
     final bool isSelected = selectedAnswer == answer;
     final theme = Theme.of(context);
@@ -322,7 +308,6 @@ class _QuizViewState extends State<QuizView> {
     );
   }
 
-  // WIdget helper untuk timer
   Widget _buildTimerWidget(ThemeData theme) {
     final double progressPercent = _timerSecond / _maxDurationPerQuestion;
     final bool isCritical = _timerSecond <= 5;
@@ -420,7 +405,7 @@ class _QuizViewState extends State<QuizView> {
                       ),
                     ],
                   ),
-                  // Question
+
                   child: Text(
                     q.question,
                     style: theme.textTheme.headlineSmall?.copyWith(
@@ -448,7 +433,6 @@ class _QuizViewState extends State<QuizView> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Kalo mau dibikin rata kanan (hapus expanded)
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _isSubmitting
@@ -506,21 +490,16 @@ class _QuizViewState extends State<QuizView> {
   }
 
   void _startQuestionTimer() {
-    // Bikin timer sesuai maks durasi per soal
     _timerSecond = _maxDurationPerQuestion;
 
-    // Batalkan timer soal sebelumnya (kalo ada, makanya pake ?, kalo soal pertama ya berarti nanti diskip)
     _questionTimer?.cancel();
 
-    // Setup timer dengan interval 1 detik, dia bakal update UI / panggil callback timer
     _questionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      // Kalo widgetnya dah ilang (misal user pencet back ke halaman lain), cancel timer
       if (!mounted) {
         timer.cancel();
         return;
       }
 
-      // Ketika timernya masih berjalan, decrement
       if (_timerSecond > 0) {
         setState(() {
           _timerSecond--;
@@ -528,22 +507,17 @@ class _QuizViewState extends State<QuizView> {
       } else {
         timer.cancel();
 
-        // Ketika timernya dah habis, handle TO
         _handleTimeout();
       }
     });
   }
 
   void _handleTimeout() {
-    // Kalo ternyata timer dah abis tapi user ga jawab, set jawaban ke null (berarti ga terjawab)
     _userAnswers.putIfAbsent(_curIndex, () => null);
 
-    // Kalo misal index yg sekarang masih lebih kecil dari index max soal (soalnya belum sampe akhir)
     if (_curIndex < widget.questions.length - 1) {
-      // Panggil nextQuestion
       nextQuestion();
     } else {
-      // Kalo ternyata udah soal terakhir, langsung submit paksa
       submitQuiz();
     }
   }

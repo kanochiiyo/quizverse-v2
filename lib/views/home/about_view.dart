@@ -18,7 +18,6 @@ class AboutView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // App Info Card with Gradient
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -42,11 +41,9 @@ class AboutView extends StatelessWidget {
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   children: [
-                    // Icon + App Name in one row
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // App Icon
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -60,7 +57,7 @@ class AboutView extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        // App Name + Version
+
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +94,6 @@ class AboutView extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // Description
                     Text(
                       'Aplikasi kuis trivia seru untuk menguji dan menambah pengetahuanmu dalam berbagai kategori!',
                       style: textTheme.bodyMedium?.copyWith(
@@ -112,7 +108,6 @@ class AboutView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Features Grid
             Text(
               'Fitur Utama',
               style: textTheme.titleLarge?.copyWith(
@@ -167,7 +162,6 @@ class AboutView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Developer Section
             Text(
               'Developer',
               style: textTheme.titleLarge?.copyWith(
@@ -176,7 +170,6 @@ class AboutView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Developer 1
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(
@@ -186,7 +179,6 @@ class AboutView extends StatelessWidget {
                 padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
-                    // Profile Image with border
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
@@ -219,7 +211,6 @@ class AboutView extends StatelessWidget {
                     ),
                     const SizedBox(width: 20),
 
-                    // Developer Info
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +255,6 @@ class AboutView extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Developer 2 (dummy)
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(
@@ -274,7 +264,6 @@ class AboutView extends StatelessWidget {
                 padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
-                    // Profile Image with border (dummy)
                     Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
@@ -307,7 +296,6 @@ class AboutView extends StatelessWidget {
                     ),
                     const SizedBox(width: 20),
 
-                    // Developer Info (dummy)
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,7 +340,6 @@ class AboutView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Teknologi
             Text(
               'Teknologi',
               style: textTheme.titleLarge?.copyWith(
@@ -382,7 +369,6 @@ class AboutView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Data Source
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -420,7 +406,6 @@ class AboutView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Copyright
             Center(
               child: Column(
                 children: [

@@ -6,10 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 class AuthController {
   final AuthFirestoreService _authService = AuthFirestoreService();
 
-  // Getter untuk akses Firebase User
   User? get firebaseUser => FirebaseAuth.instance.currentUser;
 
-  /// Login user dengan email dan password
   Future<void> login({required String email, required String password}) async {
     try {
       await _authService.signInAndFetchProfile(email, password);
@@ -18,7 +16,6 @@ class AuthController {
     }
   }
 
-  /// Register user baru
   Future<void> register({
     required String email,
     required String password,
@@ -43,7 +40,6 @@ class AuthController {
     }
   }
 
-  /// Cek apakah user sudah login
   Future<bool> checkInitialLoginStatus() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -52,7 +48,6 @@ class AuthController {
         return false;
       }
 
-      // Cek apakah user masih valid di Firestore
       final userProfile = await _authService.checkLoginStatus();
 
       return userProfile != null;
@@ -62,17 +57,14 @@ class AuthController {
     }
   }
 
-  /// Logout user
   Future<void> logout() async {
     await _authService.signOut();
   }
 
-  /// Helper: Get current user ID
   String? getLoggedInUserId() {
     return firebaseUser?.uid;
   }
 
-  /// Helper: Get current user email
   String? getLoggedInEmail() {
     return firebaseUser?.email;
   }

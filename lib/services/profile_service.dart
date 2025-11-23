@@ -63,7 +63,6 @@ class ProfileService {
     }
   }
 
-  /// Cek apakah username sudah dipakai user lain
   Future<bool> isUsernameAvailable(
     String username,
     String currentUserId,
@@ -75,10 +74,9 @@ class ProfileService {
           .get();
 
       if (querySnapshot.docs.isEmpty) {
-        return true; // Username available
+        return true;
       }
 
-      // Cek apakah username ini milik user sendiri
       final existingUser = querySnapshot.docs.first;
       return existingUser.id == currentUserId;
     } catch (e) {
@@ -87,7 +85,6 @@ class ProfileService {
     }
   }
 
-  /// Get user profile data
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     try {
       final docSnapshot = await _firestore

@@ -119,7 +119,6 @@ class _LeaderboardViewState extends State<LeaderboardView> {
         userRank: _userRank,
         duration: quizDuration,
         userAnswersJson: answersJson,
-        // ⬇️ kirim lokasi dari participant
         latitude: _currentUserData!.latitude,
         longitude: _currentUserData!.longitude,
         address: _currentUserData!.address,
