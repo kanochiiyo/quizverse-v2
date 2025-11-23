@@ -120,39 +120,33 @@ class _QuizViewState extends State<QuizView> {
     }
   }
 
+  // BAGIAN submitQuiz() yang diperbaiki
+  // Letakkan di lib/views/home/quiz_view.dart
+
   void submitQuiz() async {
-    // State untuk menyimpan durasi
     final quizDuration = DateTime.now().difference(_quizStartTime);
     final int durationInSeconds = quizDuration.inSeconds;
 
-    // Ketika pencet submit, cancel semua timer
     _questionTimer?.cancel();
 
-    // Ubah flag state isSubmitting jadi true
     setState(() => _isSubmitting = true);
 
-    // Inisialiasi skor awal
     int score = 0;
 
-    // Cek per soal, kalo jawaban ke i = jawaban benar soal yang dari API, increment soal (1 soal 1 poin)
     for (int i = 0; i < widget.questions.length; i++) {
       if (_userAnswers[i] == widget.questions[i].correctAnswer) {
         score++;
       }
     }
 
-    // Kalo panggil fungsi untuk ambil lokasi
     if (_currentPosition == null) {
       await _getCurrentLocation();
     }
 
-    // State untuk nyimpen alamat geocoding
     String? address;
 
-    // Kalo gak null
     if (_currentPosition != null) {
       try {
-        // Coba ambil alamat via longitude dan latitude menggunakan packagae geocoding
         List<geocoding.Placemark> placemarks = await geocoding
             .placemarkFromCoordinates(
               _currentPosition!.latitude,
@@ -160,11 +154,9 @@ class _QuizViewState extends State<QuizView> {
             );
 
         if (placemarks.isNotEmpty) {
-          // Kalo berhasil, set placemark untuk ditampilkan nanti di UI
           final placemark = placemarks.first;
           address =
               "${placemark.subLocality}, ${placemark.locality}, ${placemark.subAdministrativeArea}";
-          // "${placemark.locality}, ${placemark.subAdministrativeArea}";
           address = address
               .replaceAll("null, ", "")
               .replaceAll("Kecamatan ", "");
@@ -176,29 +168,23 @@ class _QuizViewState extends State<QuizView> {
       }
     }
 
-    // State untuk menyimpan data soal quiz yang dikerjakan oleh user
     String? questionsJson;
     try {
-      // Ubah ke list untuk dibikin jadi JSON (mau dimasukin ke DB)
       List<Map<String, dynamic>> questionsMap = widget.questions
           .map((q) => q.toJson())
           .toList();
 
-      // Ubah jadi JSON
       questionsJson = jsonEncode(questionsMap);
     } catch (e) {
       debugPrint("Gagal encode questions ke JSON: $e");
     }
 
-    // Lakukan hal yang sama untuk jawaban user
     String? answersJson;
     try {
-      // key menyimpan index pertanyaan, dan value itu jawaban user
       final Map<String, String?> stringKeyedAnswers = _userAnswers.map((
         key,
         value,
       ) {
-        // Karena JSON gabisa encode kalo dia tipenya int (key), maka diubah dulu jadi string
         return MapEntry(key.toString(), value);
       });
       answersJson = jsonEncode(stringKeyedAnswers);
@@ -206,12 +192,14 @@ class _QuizViewState extends State<QuizView> {
       debugPrint("Gagal encode user answers ke JSON: $e");
     }
 
+    // Variable untuk menyimpan historyId
+    String? savedHistoryId;
+
     try {
-      // Ambil userId
       final String? userId = _authController.firebaseUser?.uid;
       if (userId != null && widget.questions.isNotEmpty) {
-        final String newHistoryId = await _firestoreService.saveQuizResult(
-          userId: userId, 
+        savedHistoryId = await _firestoreService.saveQuizResult(
+          userId: userId,
           category: widget.questions.first.category,
           difficulty: widget.questions.first.difficulty,
           score: score,
@@ -223,14 +211,9 @@ class _QuizViewState extends State<QuizView> {
           quizDataJson: questionsJson,
           userAnswersJson: answersJson,
         );
-        // ngembaliin ID baris yang baru aja ditambahkan (newHistoryId)
-        debugPrint("Quiz result saved successfully! History ID: $newHistoryId");
 
-        // Tampilkan notifikasi
-        await NotificationService().showQuizResultNotification(
-          newHistoryId,
-          score,
-          widget.questions.length,
+        debugPrint(
+          "Quiz result saved successfully! History ID: $savedHistoryId",
         );
       } else {
         debugPrint(
@@ -249,6 +232,25 @@ class _QuizViewState extends State<QuizView> {
     if (mounted) {
       setState(() => _isSubmitting = false);
     }
+
+    // ========== KIRIM NOTIFIKASI ==========
+    // Kirim notifikasi SETELAH save berhasil dan SEBELUM dialog
+    if (savedHistoryId != null) {
+      try {
+        await NotificationService().showQuizResultNotification(
+          savedHistoryId,
+          score,
+          widget.questions.length,
+        );
+        debugPrint("✅ Notification sent successfully!");
+      } catch (notifError) {
+        debugPrint("❌ Error sending notification: $notifError");
+        // Tidak throw error agar dialog tetap muncul
+      }
+    } else {
+      debugPrint("⚠️ Cannot send notification: historyId is null");
+    }
+    // ======================================
 
     _confettiController.play();
 

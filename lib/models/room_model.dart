@@ -145,6 +145,11 @@ class RoomParticipant {
   final bool isReady;
   final bool hasFinished;
 
+  // ⬇️ Tambahan buat LBS
+  final double? latitude;
+  final double? longitude;
+  final String? address;
+
   RoomParticipant({
     required this.userId,
     required this.username,
@@ -154,6 +159,9 @@ class RoomParticipant {
     this.correctAnswers = 0,
     this.isReady = false,
     this.hasFinished = false,
+    this.latitude,
+    this.longitude,
+    this.address,
   });
 
   Map<String, dynamic> toMap() {
@@ -166,6 +174,9 @@ class RoomParticipant {
       'correct_answers': correctAnswers,
       'is_ready': isReady,
       'has_finished': hasFinished,
+      'latitude': latitude,
+      'longitude': longitude,
+      'address': address,
     };
   }
 
@@ -179,6 +190,9 @@ class RoomParticipant {
       correctAnswers: map['correct_answers'] as int? ?? 0,
       isReady: map['is_ready'] as bool? ?? false,
       hasFinished: map['has_finished'] as bool? ?? false,
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
+      address: map['address'] as String?,
     );
   }
 
@@ -191,6 +205,9 @@ class RoomParticipant {
     int? correctAnswers,
     bool? isReady,
     bool? hasFinished,
+    double? latitude,
+    double? longitude,
+    String? address,
   }) {
     return RoomParticipant(
       userId: userId ?? this.userId,
@@ -201,6 +218,9 @@ class RoomParticipant {
       correctAnswers: correctAnswers ?? this.correctAnswers,
       isReady: isReady ?? this.isReady,
       hasFinished: hasFinished ?? this.hasFinished,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      address: address ?? this.address,
     );
   }
 }

@@ -11,7 +11,7 @@ class MultiplayerLobbyView extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Multiplayer Quiz')),
+      appBar: AppBar(title: const Text('Multiplayer Mode')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(

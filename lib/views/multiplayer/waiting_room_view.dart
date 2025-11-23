@@ -206,7 +206,11 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Card(
-                color: colorScheme.primary.withOpacity(0.1),
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: colorScheme.primary, width: 1.5),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
@@ -214,7 +218,7 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
                       Text(
                         'Kode Room',
                         style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.grey[700],
+                          color: Colors.black,
                         ),
                       ),
                       const SizedBox(height: 8),

@@ -177,7 +177,7 @@ class _HomeViewState extends State<HomeView> {
                       icon: Icons.groups,
                       title: 'Multiplayer',
                       description: 'Main bersama',
-                      color: Colors.green,
+                      color: Theme.of(context).primaryColor,
                       isSelected: false,
                     ),
                   ),
@@ -185,13 +185,6 @@ class _HomeViewState extends State<HomeView> {
               ],
             ),
             const SizedBox(height: 24),
-
-            Text(
-              'Single Player',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
             const SizedBox(height: 16),
 
             _buildSectionTitle('Pilih Kategori'),

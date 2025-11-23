@@ -14,7 +14,6 @@ class HistoryView extends StatefulWidget {
 class _HistoryViewState extends State<HistoryView> {
   final FirestoreService _firestoreService = FirestoreService();
   final AuthController _authController = AuthController();
-
   final TextEditingController _searchController = TextEditingController();
 
   List<Map<String, dynamic>> _quizHistory = [];
@@ -23,13 +22,16 @@ class _HistoryViewState extends State<HistoryView> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  // Filter state
+  String _selectedFilter = 'all'; // all, single, multi
+
   @override
   void initState() {
     super.initState();
     _loadHistory();
 
     _searchController.addListener(() {
-      _filterHistory(_searchController.text);
+      _applyFilters();
     });
   }
 
@@ -54,7 +56,7 @@ class _HistoryViewState extends State<HistoryView> {
         if (!mounted) return;
         setState(() {
           _quizHistory = history;
-          _filteredHistory = history;
+          _applyFilters();
           _isLoading = false;
         });
       } else {
@@ -74,23 +76,36 @@ class _HistoryViewState extends State<HistoryView> {
     }
   }
 
-  void _filterHistory(String query) {
-    final lowerCaseQuery = query.toLowerCase();
+  void _applyFilters() {
+    final query = _searchController.text.toLowerCase();
 
-    final filteredList = _quizHistory.where((item) {
+    var filtered = _quizHistory.where((item) {
+      // Filter berdasarkan mode (single/multi)
+      final isMultiplayer = item['is_multiplayer'] as bool? ?? false;
+
+      bool modeMatch = true;
+      if (_selectedFilter == 'single' && isMultiplayer) {
+        modeMatch = false;
+      } else if (_selectedFilter == 'multi' && !isMultiplayer) {
+        modeMatch = false;
+      }
+
+      if (!modeMatch) return false;
+
+      // Filter berdasarkan search query
+      if (query.isEmpty) return true;
+
       final category = (item['category'] as String?)?.toLowerCase() ?? '';
       final difficulty = (item['difficulty'] as String?)?.toLowerCase() ?? '';
-      final address = (item['address'] as String?)?.toLowerCase() ?? '';
       final roomCode = (item['room_code'] as String?)?.toLowerCase() ?? '';
 
-      return category.contains(lowerCaseQuery) ||
-          difficulty.contains(lowerCaseQuery) ||
-          address.contains(lowerCaseQuery) ||
-          roomCode.contains(lowerCaseQuery);
+      return category.contains(query) ||
+          difficulty.contains(query) ||
+          roomCode.contains(query);
     }).toList();
 
     setState(() {
-      _filteredHistory = filteredList;
+      _filteredHistory = filtered;
     });
   }
 
@@ -101,55 +116,33 @@ class _HistoryViewState extends State<HistoryView> {
       final utcDateTime = DateTime.parse(isoUtcString);
       final localDateTime = utcDateTime.toLocal();
 
-      return DateFormat('EEE, d MMM yyyy HH:mm', 'id_ID').format(localDateTime);
+      return DateFormat('d MMM yyyy, HH:mm', 'id_ID').format(localDateTime);
     } catch (e) {
       return dateString;
     }
   }
 
   String _formatDuration(int? totalSeconds) {
-    if (totalSeconds == null || totalSeconds < 0) {
-      return '?';
-    }
+    if (totalSeconds == null || totalSeconds < 0) return '?';
     final duration = Duration(seconds: totalSeconds);
     final minutes = duration.inMinutes;
     final seconds = totalSeconds % 60;
 
-    String durationString = '';
     if (minutes > 0) {
-      durationString += '${minutes}m ';
+      return '${minutes}m ${seconds}s';
     }
-    durationString += '${seconds}d';
-    return durationString;
+    return '${seconds}s';
   }
 
-  String capitalize(String s) => s[0].toUpperCase() + s.substring(1);
-
-  Widget _buildInfoRow(IconData icon, String text, {Color? color}) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: color ?? Colors.grey[700]),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 12,
-                color: color ?? Colors.grey[700],
-                fontWeight: color != null ? FontWeight.bold : FontWeight.normal,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
+  String capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Riwayat Kuis'),
@@ -157,12 +150,13 @@ class _HistoryViewState extends State<HistoryView> {
       ),
       body: Column(
         children: [
+          // Search bar
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Cari kategori, kesulitan, kode room...',
+                hintText: 'Cari kategori, kesulitan...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
@@ -179,6 +173,69 @@ class _HistoryViewState extends State<HistoryView> {
               ),
             ),
           ),
+
+          // Filter chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                FilterChip(
+                  label: const Text('Semua'),
+                  selected: _selectedFilter == 'all',
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedFilter = 'all';
+                      _applyFilters();
+                    });
+                  },
+                  selectedColor: theme.primaryColor.withOpacity(0.2),
+                  checkmarkColor: theme.primaryColor,
+                ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Single Player'),
+                  selected: _selectedFilter == 'single',
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedFilter = 'single';
+                      _applyFilters();
+                    });
+                  },
+                  selectedColor: theme.primaryColor.withOpacity(0.2),
+                  checkmarkColor: theme.primaryColor,
+                  avatar: Icon(
+                    Icons.person,
+                    size: 16,
+                    color: _selectedFilter == 'single'
+                        ? theme.primaryColor
+                        : Colors.grey,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Multiplayer'),
+                  selected: _selectedFilter == 'multi',
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedFilter = 'multi';
+                      _applyFilters();
+                    });
+                  },
+                  selectedColor: Colors.green.withOpacity(0.2),
+                  checkmarkColor: Colors.green,
+                  avatar: Icon(
+                    Icons.groups,
+                    size: 16,
+                    color: _selectedFilter == 'multi'
+                        ? Colors.green
+                        : Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           Expanded(child: _buildBody()),
         ],
       ),
@@ -194,228 +251,437 @@ class _HistoryViewState extends State<HistoryView> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Text(
-            _errorMessage!,
-            style: const TextStyle(color: Colors.red),
-            textAlign: TextAlign.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage!,
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       );
     }
 
     if (_quizHistory.isEmpty) {
-      return const Center(child: Text('Belum ada riwayat kuis.'));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Belum ada riwayat kuis',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Mulai quiz untuk melihat riwayat',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      );
     }
 
     if (_filteredHistory.isEmpty) {
-      return const Center(
-        child: Text('Tidak ada riwayat yang cocok dengan pencarian.'),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Tidak ada hasil',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Coba ubah filter atau kata kunci',
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+            ),
+          ],
+        ),
       );
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.all(16),
       itemCount: _filteredHistory.length,
       itemBuilder: (context, index) {
-        final historyItem = _filteredHistory[index];
+        return _buildHistoryCard(_filteredHistory[index]);
+      },
+    );
+  }
 
-        final score = historyItem['score'] as int?;
-        final totalQuestions = historyItem['total_questions'] as int?;
-        final category = historyItem['category'] as String?;
-        final difficulty = historyItem['difficulty'] as String?;
-        final date = historyItem['quiz_date'] as String?;
-        final latitude = historyItem['latitude'] as double?;
-        final longitude = historyItem['longitude'] as double?;
-        final address = historyItem['address'] as String?;
-        final durationInSeconds = historyItem['duration'] as int?;
+  Widget _buildHistoryCard(Map<String, dynamic> historyItem) {
+    final theme = Theme.of(context);
 
-        final isMultiplayer = historyItem['is_multiplayer'] as bool? ?? false;
-        final roomCode = historyItem['room_code'] as String?;
-        final totalPlayers = historyItem['total_players'] as int?;
-        final userRank = historyItem['user_rank'] as int?;
-        final multiplayerScore = historyItem['multiplayer_score'] as int?;
+    final score = historyItem['score'] as int?;
+    final totalQuestions = historyItem['total_questions'] as int?;
+    final category = historyItem['category'] as String?;
+    final difficulty = historyItem['difficulty'] as String?;
+    final date = historyItem['quiz_date'] as String?;
+    final durationInSeconds = historyItem['duration'] as int?;
 
-        final theme = Theme.of(context);
+    final isMultiplayer = historyItem['is_multiplayer'] as bool? ?? false;
+    final roomCode = historyItem['room_code'] as String?;
+    final userRank = historyItem['user_rank'] as int?;
+    final multiplayerScore = historyItem['multiplayer_score'] as int?;
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-          child: Card(
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
+    // Location data (dipakai baik untuk single maupun multiplayer)
+    final address = historyItem['address'] as String?;
+    final latitude = historyItem['latitude'] as double?;
+    final longitude = historyItem['longitude'] as double?;
+
+    // Determine difficulty color
+    Color difficultyColor;
+    switch (difficulty?.toLowerCase()) {
+      case 'easy':
+        difficultyColor = Colors.green;
+        break;
+      case 'medium':
+        difficultyColor = Colors.orange;
+        break;
+      case 'hard':
+        difficultyColor = Colors.red;
+        break;
+      default:
+        difficultyColor = Colors.grey;
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          if (historyItem['quiz_data_json'] != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    HistoryDetailView(historyItem: historyItem),
               ),
-              leading: Stack(
-                children: [
-                  Icon(
-                    isMultiplayer ? Icons.groups : Icons.history_edu,
-                    color: isMultiplayer ? Colors.green : theme.primaryColor,
-                    size: 36,
-                  ),
-                  if (isMultiplayer && userRank != null && userRank <= 3)
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: userRank == 1
-                              ? Colors.amber
-                              : userRank == 2
-                              ? Colors.grey[400]
-                              : Colors.brown[300],
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.emoji_events,
-                          color: Colors.white,
-                          size: 12,
-                        ),
-                      ),
-                    ),
-                ],
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Detail untuk riwayat ini tidak tersedia.'),
+                backgroundColor: Colors.grey,
               ),
-              title: Row(
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: Category + Mode Badge
+              Row(
                 children: [
                   Expanded(
                     child: Text(
                       category ?? 'Kategori Tidak Diketahui',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  if (isMultiplayer)
+                  // Mode badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isMultiplayer
+                          ? Colors.green.withOpacity(0.1)
+                          : theme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isMultiplayer
+                            ? Colors.green
+                            : theme.primaryColor,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isMultiplayer ? Icons.groups : Icons.person,
+                          size: 14,
+                          color: isMultiplayer
+                              ? Colors.green
+                              : theme.primaryColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          isMultiplayer ? 'Multi' : 'Solo',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isMultiplayer
+                                ? Colors.green
+                                : theme.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Info row: Difficulty + Date
+              Row(
+                children: [
+                  // Difficulty chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: difficultyColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.speed, size: 12, color: difficultyColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          difficulty != null ? capitalize(difficulty) : '?',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: difficultyColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Date
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          size: 12,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _formatDate(date),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Location info (dipakai untuk semua mode)
+              if (address != null && address.isNotEmpty) ...[
+                Row(
+                  children: [
+                    Icon(Icons.location_on, size: 14, color: Colors.red[400]),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        address,
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ] else if (latitude != null && longitude != null) ...[
+                Row(
+                  children: [
+                    Icon(Icons.location_on, size: 14, color: Colors.red[400]),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+
+              // Bottom section: Score + Additional info
+              Row(
+                children: [
+                  // Score section
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (isMultiplayer) ...[
+                          // Multiplayer score + rank
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 16,
+                                color: Colors.amber,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$multiplayerScore pts',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (userRank != null && userRank <= 3) ...[
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.emoji_events,
+                                  size: 16,
+                                  color: userRank == 1
+                                      ? Colors.amber
+                                      : userRank == 2
+                                      ? Colors.grey[400]
+                                      : Colors.brown[300],
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${score ?? 0}/$totalQuestions benar • Rank #$userRank',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          if (roomCode != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Room: $roomCode',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ),
+                        ] else ...[
+                          // Single player score
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                size: 16,
+                                color: theme.primaryColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$score dari $totalQuestions',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${((score ?? 0) / (totalQuestions ?? 1) * 100).toStringAsFixed(0)}% benar',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  // Duration chip
+                  if (durationInSeconds != null && durationInSeconds > 0)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                        horizontal: 10,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.grey[100],
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green, width: 1),
                       ),
-                      child: const Text(
-                        'MULTI',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.timer, size: 14, color: Colors.grey[700]),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatDuration(durationInSeconds),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
               ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  _buildInfoRow(
-                    Icons.layers_outlined,
-                    'Kesulitan: ${difficulty != null ? capitalize(difficulty) : '?'}',
-                  ),
-                  _buildInfoRow(
-                    Icons.calendar_today_outlined,
-                    _formatDate(date),
-                  ),
-                  if (durationInSeconds != null && durationInSeconds > 0)
-                    _buildInfoRow(
-                      Icons.timer_outlined,
-                      "Durasi: ${_formatDuration(durationInSeconds)}",
-                    ),
 
-                  if (isMultiplayer) ...[
-                    if (roomCode != null)
-                      _buildInfoRow(
-                        Icons.tag,
-                        'Room: $roomCode',
-                        color: Colors.green,
-                      ),
-                    if (totalPlayers != null)
-                      _buildInfoRow(
-                        Icons.people,
-                        '$totalPlayers pemain',
-                        color: Colors.blue,
-                      ),
-                    if (userRank != null)
-                      _buildInfoRow(
-                        Icons.military_tech,
-                        'Peringkat #$userRank',
-                        color: userRank <= 3 ? Colors.amber : Colors.grey[600],
-                      ),
-                  ] else ...[
-                    if (address != null && address.isNotEmpty)
-                      _buildInfoRow(Icons.location_on_outlined, address)
-                    else if (latitude != null && longitude != null)
-                      _buildInfoRow(
-                        Icons.location_on_outlined,
-                        '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}',
-                      ),
-                  ],
-
-                  if (historyItem['quiz_data_json'] != null)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 6.0),
-                      child: Text(
-                        'Klik untuk lihat detail...',
+              // Detail hint
+              if (historyItem['quiz_data_json'] != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Tap untuk lihat detail',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
+                          fontSize: 11,
+                          color: theme.primaryColor,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
-                    ),
-                ],
-              ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Chip(
-                    label: Text(
-                      isMultiplayer && multiplayerScore != null
-                          ? '$multiplayerScore pts'
-                          : '${score ?? '?'} / ${totalQuestions ?? '?'}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 10,
+                        color: theme.primaryColor,
                       ),
-                    ),
-                    backgroundColor: isMultiplayer
-                        ? Colors.green
-                        : theme.primaryColor,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
+                    ],
                   ),
-                  if (isMultiplayer)
-                    Text(
-                      '${score ?? 0}/${totalQuestions ?? 0} benar',
-                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                    ),
-                ],
-              ),
-              onTap: () {
-                if (historyItem['quiz_data_json'] != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          HistoryDetailView(historyItem: historyItem),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Detail untuk riwayat ini tidak tersedia.'),
-                      backgroundColor: Colors.grey,
-                    ),
-                  );
-                }
-              },
-            ),
+                ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

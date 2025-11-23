@@ -156,6 +156,13 @@ class MultiplayerService {
     required String userId,
     required int score,
     required int correctAnswers,
+
+    // LBS + data tambahan
+    double? latitude,
+    double? longitude,
+    String? address,
+    int? duration,
+    String? userAnswersJson,
   }) async {
     try {
       final roomDoc = await _roomsCollection.doc(roomId).get();
@@ -170,6 +177,9 @@ class MultiplayerService {
             score: score,
             correctAnswers: correctAnswers,
             hasFinished: true,
+            latitude: latitude ?? p.latitude,
+            longitude: longitude ?? p.longitude,
+            address: address ?? p.address,
           );
         }
         return p;
@@ -261,6 +271,11 @@ class MultiplayerService {
     required int userRank,
     required int duration,
     required String? userAnswersJson,
+
+    // Lokasi history multiplayer
+    double? latitude,
+    double? longitude,
+    String? address,
   }) async {
     try {
       final historyRef = _firestore.collection('quiz_history').doc();
@@ -283,6 +298,10 @@ class MultiplayerService {
         'total_players': room.participants.length,
         'user_rank': userRank,
         'multiplayer_score': userScore,
+
+        'latitude': latitude,
+        'longitude': longitude,
+        'address': address,
       });
 
       debugPrint('Multiplayer history saved: ${historyRef.id}');

@@ -119,6 +119,10 @@ class _LeaderboardViewState extends State<LeaderboardView> {
         userRank: _userRank,
         duration: quizDuration,
         userAnswersJson: answersJson,
+        // ⬇️ kirim lokasi dari participant
+        latitude: _currentUserData!.latitude,
+        longitude: _currentUserData!.longitude,
+        address: _currentUserData!.address,
       );
 
       debugPrint('Multiplayer history saved successfully');
@@ -237,29 +241,138 @@ class _LeaderboardViewState extends State<LeaderboardView> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
 
                   if (_currentUserData != null)
-                    Card(
-                      color: colorScheme.primary.withOpacity(0.1),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            colorScheme.primary,
+                            colorScheme.primary.withOpacity(0.8),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colorScheme.primary.withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.all(20.0),
                         child: Column(
                           children: [
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 3,
+                                    ),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 30,
+                                    backgroundImage:
+                                        _currentUserData!.profilePhotoUrl !=
+                                            null
+                                        ? NetworkImage(
+                                            _currentUserData!.profilePhotoUrl!,
+                                          )
+                                        : null,
+                                    backgroundColor: Colors.white,
+                                    child:
+                                        _currentUserData!.profilePhotoUrl ==
+                                            null
+                                        ? Icon(
+                                            Icons.person,
+                                            size: 35,
+                                            color: colorScheme.primary,
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _currentUserData!.username,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.2),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Statistik Anda',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+
+                            Container(
+                              height: 1,
+                              color: Colors.white.withOpacity(0.3),
+                            ),
+                            const SizedBox(height: 20),
+
+                            Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                _buildStatItem(
+                                _buildImprovedStatItem(
                                   'Peringkat',
                                   '#$_userRank',
                                   Icons.military_tech,
                                 ),
-                                _buildStatItem(
+                                Container(
+                                  width: 1,
+                                  height: 50,
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                                _buildImprovedStatItem(
                                   'Skor',
                                   '${_currentUserData!.score}',
                                   Icons.star,
                                 ),
-                                _buildStatItem(
+                                Container(
+                                  width: 1,
+                                  height: 50,
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                                _buildImprovedStatItem(
                                   'Benar',
                                   '${_currentUserData!.correctAnswers}/${displayRoom.questionAmount}',
                                   Icons.check_circle,
@@ -360,17 +473,24 @@ class _LeaderboardViewState extends State<LeaderboardView> {
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon) {
+  Widget _buildImprovedStatItem(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: Theme.of(context).primaryColor, size: 28),
+        Icon(icon, color: Colors.white, size: 32),
         const SizedBox(height: 8),
         Text(
           value,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         const SizedBox(height: 4),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.9)),
+        ),
       ],
     );
   }
@@ -481,27 +601,37 @@ class _LeaderboardViewState extends State<LeaderboardView> {
     required RoomModel room,
   }) {
     Color rankColor;
-    IconData rankIcon;
 
     if (rank == 1) {
       rankColor = Colors.amber;
-      rankIcon = Icons.emoji_events;
     } else if (rank == 2) {
       rankColor = Colors.grey[400]!;
-      rankIcon = Icons.emoji_events;
     } else if (rank == 3) {
       rankColor = Colors.brown[300]!;
-      rankIcon = Icons.emoji_events;
     } else {
       rankColor = Colors.grey[600]!;
-      rankIcon = Icons.person;
     }
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      elevation: isCurrentUser ? 4 : 1,
-      color: isCurrentUser ? theme.primaryColor.withOpacity(0.1) : null,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: isCurrentUser
+            ? Border.all(color: theme.colorScheme.primary, width: 2.5)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: isCurrentUser
+                ? theme.colorScheme.primary.withOpacity(0.2)
+                : Colors.black.withOpacity(0.05),
+            blurRadius: isCurrentUser ? 8 : 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -542,33 +672,38 @@ class _LeaderboardViewState extends State<LeaderboardView> {
               child: Text(
                 participant.username,
                 style: TextStyle(
-                  fontWeight: isCurrentUser
-                      ? FontWeight.bold
-                      : FontWeight.normal,
+                  fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.w600,
+                  fontSize: isCurrentUser ? 16 : 15,
                 ),
               ),
             ),
             if (isCurrentUser)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: theme.colorScheme.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
                   'Anda',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.blue,
+                    color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
           ],
         ),
-        subtitle: Text(
-          '${participant.correctAnswers}/${room.questionAmount} benar',
-          style: const TextStyle(fontSize: 12),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            '${participant.correctAnswers}/${room.questionAmount} benar',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -577,13 +712,13 @@ class _LeaderboardViewState extends State<LeaderboardView> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.star, color: Colors.amber, size: 16),
+                Icon(Icons.star, color: Colors.amber, size: 18),
                 const SizedBox(width: 4),
                 Text(
                   '${participant.score}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 18,
                   ),
                 ),
               ],
