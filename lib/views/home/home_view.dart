@@ -3,6 +3,7 @@ import 'package:quizverse/controllers/quiz_controller.dart';
 import 'package:quizverse/models/quiz_model.dart';
 import 'package:quizverse/models/category_model.dart';
 import 'package:quizverse/views/home/quiz_view.dart';
+import 'package:quizverse/views/multiplayer/multiplayer_lobby_view.dart';
 import 'package:quizverse/services/conversion_service.dart';
 
 class HomeView extends StatefulWidget {
@@ -13,21 +14,17 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  // Inisialisasi controller dan service
   final QuizController _controller = QuizController();
   final ConversionService _conversionService = ConversionService();
 
-  // State untuk data dari API/Service
   String? selectedCategory;
   bool isLoadingCategories = true;
   String? categoryError;
   List<CategoryModel> categories = [];
 
-  // State pilihan user
   String selectedDifficulty = 'easy';
   int selectedAmount = 10;
 
-  // State untuk UI
   bool isLoading = false;
   String? dailyFact;
   bool isLoadingFact = true;
@@ -59,7 +56,6 @@ class _HomeViewState extends State<HomeView> {
       final fetchedCategories = await _controller.loadCategories();
       if (!mounted) return;
       setState(() {
-        // Ambil data dari API controller
         categories = fetchedCategories;
         isLoadingCategories = false;
       });
@@ -98,9 +94,7 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  
   Future<void> startQuiz() async {
-    // Kalo misal belum milih kategori apa-apa
     if (selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -113,7 +107,6 @@ class _HomeViewState extends State<HomeView> {
 
     setState(() => isLoading = true);
     try {
-      // Load soal dari controller quiz
       List<QuizModel> questions = await _controller.loadQuestions(
         amount: selectedAmount,
         category: selectedCategory!,
@@ -142,6 +135,13 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
+  void _goToMultiplayer() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MultiplayerLobbyView()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isOverallLoading =
@@ -149,7 +149,7 @@ class _HomeViewState extends State<HomeView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mulai Kuis Baru'),
+        title: const Text('QuizVerse'),
         automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
@@ -157,14 +157,49 @@ class _HomeViewState extends State<HomeView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Panggil widget untuk build section title dan widget category card
+            Row(
+              children: [
+                Expanded(
+                  child: _buildModeCard(
+                    icon: Icons.person,
+                    title: 'Single Player',
+                    description: 'Main sendiri',
+                    color: Theme.of(context).primaryColor,
+                    isSelected: true,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: _goToMultiplayer,
+                    borderRadius: BorderRadius.circular(12),
+                    child: _buildModeCard(
+                      icon: Icons.groups,
+                      title: 'Multiplayer',
+                      description: 'Main bersama',
+                      color: Colors.green,
+                      isSelected: false,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            Text(
+              'Single Player',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+
             _buildSectionTitle('Pilih Kategori'),
             _buildCategoryList(isOverallLoading),
             if (categoryError != null) _buildCategoryError(),
 
             const SizedBox(height: 24),
             _buildSectionTitle('Tingkat Kesulitan'),
-            // Panggil widget dofficulty card
             Row(
               children: [
                 Expanded(
@@ -216,7 +251,6 @@ class _HomeViewState extends State<HomeView> {
             const SizedBox(height: 24),
 
             _buildSectionTitle('Jumlah Soal'),
-            // Panggil widget selection jumlah soal card
             Row(
               children: [
                 Expanded(
@@ -253,7 +287,7 @@ class _HomeViewState extends State<HomeView> {
                   child: _buildSelectionCard(
                     text: '${amountOptions[2]} Soal',
                     icon: Icons.format_list_numbered,
-                    isSelected: selectedAmount == amountOptions[2], 
+                    isSelected: selectedAmount == amountOptions[2],
                     onTap: isOverallLoading
                         ? null
                         : () {
@@ -270,12 +304,7 @@ class _HomeViewState extends State<HomeView> {
             _buildDailyFactWidget(),
             const SizedBox(height: 24),
 
-            // Row(
-            //   mainAxisAlignment: MainAxisAlignment.end,
-            //   children: [
-            // Tombol mulai kuis
             ElevatedButton(
-              // Kalo belum milih kategori atau lagi loading, null in dulu (biar ga bisa diteken)
               onPressed: (isOverallLoading || selectedCategory == null)
                   ? null
                   : startQuiz,
@@ -292,13 +321,45 @@ class _HomeViewState extends State<HomeView> {
             ),
           ],
         ),
-        // ],
-        // ),
       ),
     );
   }
 
-  // Helper untuk bikin selection title
+  Widget _buildModeCard({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+    required bool isSelected,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isSelected ? color.withOpacity(0.1) : Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected ? color : Colors.grey[300]!,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 32, color: color),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(fontWeight: FontWeight.bold, color: color),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
@@ -311,13 +372,12 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // Helper untuk bikin category list yang bisa discroll itu (keseluruhan dan banyak card)
   Widget _buildCategoryList(bool isLoading) {
     if (isLoadingCategories) {
       return Container(
         height: 120,
         alignment: Alignment.center,
-        child: CircularProgressIndicator(),
+        child: const CircularProgressIndicator(),
       );
     }
 
@@ -325,7 +385,7 @@ class _HomeViewState extends State<HomeView> {
       return Container(
         height: 120,
         alignment: Alignment.center,
-        child: Text("Tidak ada kategori ditemukan."),
+        child: const Text("Tidak ada kategori ditemukan."),
       );
     }
 
@@ -333,7 +393,7 @@ class _HomeViewState extends State<HomeView> {
       height: 105,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.only(right: 16),
+        padding: const EdgeInsets.only(right: 16),
         itemCount: categories.length,
         itemBuilder: (context, index) {
           final category = categories[index];
@@ -377,7 +437,6 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // Category Card (per 1 biji)
   Widget _buildCategoryCard({
     required CategoryModel category,
     required bool isSelected,
@@ -391,13 +450,11 @@ class _HomeViewState extends State<HomeView> {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: 100,
-        margin: EdgeInsets.only(right: 10),
+        margin: const EdgeInsets.only(right: 10),
         decoration: BoxDecoration(
-          // Ngatur kalo selected, kalo dipilih, ubah BG card,
           color: isSelected ? colorScheme.primary : theme.cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            // Untuk border, kalo ga dipilih, ganti warna border
             color: isSelected ? colorScheme.primary : Colors.grey[300]!,
             width: 2,
           ),
@@ -405,7 +462,7 @@ class _HomeViewState extends State<HomeView> {
             BoxShadow(
               color: Colors.black.withAlpha(12),
               blurRadius: 4,
-              offset: Offset(0, 2),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -415,10 +472,9 @@ class _HomeViewState extends State<HomeView> {
             Icon(
               category.iconData,
               size: 30,
-              // Kalo dipilih, iconnya ubah jadi warna putih
               color: isSelected ? Colors.white : colorScheme.primary,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
               child: Text(
@@ -439,7 +495,6 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // Widget builder card untuk tingkat kesulitan dan jumlah soal (kategori dibedain karena dari API/model)
   Widget _buildSelectionCard({
     required String text,
     required IconData icon,
@@ -453,7 +508,7 @@ class _HomeViewState extends State<HomeView> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: isSelected ? colorScheme.primary : theme.cardColor,
           borderRadius: BorderRadius.circular(12),
@@ -471,7 +526,7 @@ class _HomeViewState extends State<HomeView> {
                   : colorScheme.onSurface.withAlpha(178),
               size: 30,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               text,
               style: TextStyle(
@@ -485,7 +540,6 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // Ambil data Icon
   IconData _getDifficultyIcon(String difficulty) {
     switch (difficulty) {
       case 'easy':
@@ -543,7 +597,6 @@ class _HomeViewState extends State<HomeView> {
                 style: TextStyle(color: theme.colorScheme.error),
               ),
             ),
-            
           ],
         ),
       );
