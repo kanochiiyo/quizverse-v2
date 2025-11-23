@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' as geocoding;
 import 'package:quizverse/models/room_model.dart';
 import 'package:quizverse/controllers/quiz_controller.dart';
 import 'package:quizverse/services/multiplayer_service.dart';
@@ -29,10 +31,94 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
   RoomModel? _currentRoom;
   bool _isStarting = false;
 
+  // Tambahan untuk lokasi
+  Position? _currentPosition;
+  String? _currentAddress;
+  bool _isLoadingLocation = false;
+
   @override
   void initState() {
     super.initState();
     _listenToRoom();
+    _getCurrentLocation(); // Ambil lokasi saat masuk waiting room
+  }
+
+  // Fungsi baru untuk mendapatkan lokasi
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLoadingLocation = true);
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint("Location service is disabled");
+        setState(() => _isLoadingLocation = false);
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          debugPrint("Location permission denied");
+          setState(() => _isLoadingLocation = false);
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint("Location permission denied forever");
+        setState(() => _isLoadingLocation = false);
+        return;
+      }
+
+      final LocationSettings locationSettings = LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 100,
+      );
+
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: locationSettings,
+      );
+
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+        });
+        debugPrint(
+          "Location obtained: ${position.latitude}, ${position.longitude}",
+        );
+
+        // Ambil address dari koordinat
+        try {
+          List<geocoding.Placemark> placemarks = await geocoding
+              .placemarkFromCoordinates(position.latitude, position.longitude);
+
+          if (placemarks.isNotEmpty) {
+            final placemark = placemarks.first;
+            String address =
+                "${placemark.subLocality}, ${placemark.locality}, ${placemark.subAdministrativeArea}";
+            address = address
+                .replaceAll("null, ", "")
+                .replaceAll("Kecamatan ", "");
+
+            if (mounted) {
+              setState(() {
+                _currentAddress = address;
+              });
+              debugPrint("Address obtained: $address");
+            }
+          }
+        } catch (e) {
+          debugPrint("Error getting address: $e");
+        }
+      }
+    } catch (e) {
+      debugPrint("Error getting location: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingLocation = false);
+      }
+    }
   }
 
   void _listenToRoom() {
@@ -68,7 +154,11 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => MultiplayerQuizView(room: room),
+          builder: (context) => MultiplayerQuizView(
+            room: room,
+            userLocation: _currentPosition,
+            userAddress: _currentAddress,
+          ),
         ),
       );
     }
@@ -269,6 +359,7 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
                         Icons.category,
                         'Kategori',
                         _currentRoom!.categoryName,
+                        ellipsize: true, // Tambahkan ellipsis
                       ),
                       _buildInfoRow(
                         Icons.layers,
@@ -284,6 +375,65 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Tampilkan status lokasi
+              if (_isLoadingLocation)
+                Card(
+                  color: Colors.blue.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Mengambil lokasi...',
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (_currentPosition != null)
+                Card(
+                  color: Colors.green.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.location_on,
+                          color: Colors.green.shade700,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _currentAddress ??
+                                '${_currentPosition!.latitude.toStringAsFixed(4)}, ${_currentPosition!.longitude.toStringAsFixed(4)}',
+                            style: TextStyle(
+                              color: Colors.green.shade700,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
 
               Row(
@@ -462,7 +612,12 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(
+    IconData icon,
+    String label,
+    String value, {
+    bool ellipsize = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -474,9 +629,13 @@ class _WaitingRoomViewState extends State<WaitingRoomView> {
             style: TextStyle(color: Colors.grey[600], fontSize: 14),
           ),
           const SizedBox(width: 8),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              maxLines: ellipsize ? 1 : null,
+              overflow: ellipsize ? TextOverflow.ellipsis : null,
+            ),
           ),
         ],
       ),

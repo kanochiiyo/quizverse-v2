@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:quizverse/models/room_model.dart';
 import 'package:quizverse/models/quiz_model.dart';
 import 'package:quizverse/services/multiplayer_service.dart';
@@ -9,8 +10,15 @@ import 'package:quizverse/views/multiplayer/leaderboard_view.dart';
 
 class MultiplayerQuizView extends StatefulWidget {
   final RoomModel room;
+  final Position? userLocation;
+  final String? userAddress;
 
-  const MultiplayerQuizView({super.key, required this.room});
+  const MultiplayerQuizView({
+    super.key,
+    required this.room,
+    this.userLocation,
+    this.userAddress,
+  });
 
   @override
   State<MultiplayerQuizView> createState() => _MultiplayerQuizViewState();
@@ -151,14 +159,18 @@ class _MultiplayerQuizViewState extends State<MultiplayerQuizView> {
         }
       }
 
+      // Kirim score beserta data lokasi
       await _multiplayerService.updateParticipantScore(
         roomId: widget.room.roomId,
         userId: userId,
         score: totalScore,
         correctAnswers: correctAnswers,
+        latitude: widget.userLocation?.latitude,
+        longitude: widget.userLocation?.longitude,
+        address: widget.userAddress,
       );
 
-      debugPrint('Quiz submitted. Waiting for other players...');
+      debugPrint('Quiz submitted with location. Waiting for other players...');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
