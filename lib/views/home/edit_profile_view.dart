@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quizverse/services/profile_service.dart';
+import 'package:quizverse/services/profile_photo_history_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EditProfileView extends StatefulWidget {
   final String fullName;
@@ -24,6 +26,8 @@ class EditProfileView extends StatefulWidget {
 
 class _EditProfileViewState extends State<EditProfileView> {
   final ProfileService _profileService = ProfileService();
+  final ProfilePhotoHistoryService _historyService =
+      ProfilePhotoHistoryService();
   final ImagePicker _imagePicker = ImagePicker();
 
   late TextEditingController _fullNameController;
@@ -31,6 +35,7 @@ class _EditProfileViewState extends State<EditProfileView> {
   late TextEditingController _emailController;
 
   File? _newProfileImage;
+  String? _selectedHistoryUrl; // URL yang dipilih dari history
   bool _deleteCurrentPhoto = false;
   bool _isLoading = false;
   String? _errorMessage;
@@ -63,6 +68,7 @@ class _EditProfileViewState extends State<EditProfileView> {
       if (pickedFile != null) {
         setState(() {
           _newProfileImage = File(pickedFile.path);
+          _selectedHistoryUrl = null;
           _deleteCurrentPhoto = false;
         });
 
@@ -96,6 +102,7 @@ class _EditProfileViewState extends State<EditProfileView> {
       if (pickedFile != null) {
         setState(() {
           _newProfileImage = File(pickedFile.path);
+          _selectedHistoryUrl = null;
           _deleteCurrentPhoto = false;
         });
 
@@ -114,6 +121,101 @@ class _EditProfileViewState extends State<EditProfileView> {
         );
       }
     }
+  }
+
+  Future<void> _showHistoryDialog() async {
+    final history = await _historyService.getPhotoHistory();
+
+    if (!mounted) return;
+
+    if (history.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Belum ada history foto profil'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pilih dari History'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: history.length,
+            itemBuilder: (context, index) {
+              final photoUrl = history[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      photoUrl,
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          width: 50,
+                          height: 50,
+                          color: Colors.grey[300],
+                          child: const Icon(Icons.broken_image),
+                        );
+                      },
+                    ),
+                  ),
+                  title: Text(
+                    'Foto ${index + 1}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    photoUrl.length > 40
+                        ? '${photoUrl.substring(0, 40)}...'
+                        : photoUrl,
+                    style: const TextStyle(fontSize: 11),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                    onPressed: () async {
+                      await _historyService.removePhotoFromHistory(photoUrl);
+                      Navigator.pop(context);
+                      _showHistoryDialog();
+                    },
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _selectedHistoryUrl = photoUrl;
+                      _newProfileImage = null;
+                      _deleteCurrentPhoto = false;
+                    });
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Foto dari history dipilih'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showPhotoOptions() {
@@ -145,7 +247,18 @@ class _EditProfileViewState extends State<EditProfileView> {
                     _pickImageFromCamera();
                   },
                 ),
-                if (widget.profilePhotoUrl != null || _newProfileImage != null)
+                // TAMBAHKAN OPSI INI
+                ListTile(
+                  leading: const Icon(Icons.history, color: Colors.purple),
+                  title: const Text('Pilih dari History'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showHistoryDialog();
+                  },
+                ),
+                if (widget.profilePhotoUrl != null ||
+                    _newProfileImage != null ||
+                    _selectedHistoryUrl != null)
                   ListTile(
                     leading: const Icon(Icons.delete, color: Colors.red),
                     title: const Text('Hapus Foto Profil'),
@@ -153,6 +266,7 @@ class _EditProfileViewState extends State<EditProfileView> {
                       Navigator.pop(context);
                       setState(() {
                         _newProfileImage = null;
+                        _selectedHistoryUrl = null;
                         _deleteCurrentPhoto = true;
                       });
                     },
@@ -222,13 +336,25 @@ class _EditProfileViewState extends State<EditProfileView> {
         }
       }
 
-      await _profileService.updateProfile(
-        userId: userId,
-        fullName: fullName,
-        username: username,
-        newProfileImage: _newProfileImage,
-        deleteProfilePhoto: _deleteCurrentPhoto,
-      );
+      if (_selectedHistoryUrl != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .update({
+              'fullName': fullName,
+              'username': username,
+              'profilePhotoUrl': _selectedHistoryUrl,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+      } else {
+        await _profileService.updateProfile(
+          userId: userId,
+          fullName: fullName,
+          username: username,
+          newProfileImage: _newProfileImage,
+          deleteProfilePhoto: _deleteCurrentPhoto,
+        );
+      }
 
       if (!mounted) return;
 
@@ -310,6 +436,18 @@ class _EditProfileViewState extends State<EditProfileView> {
 
     if (_deleteCurrentPhoto) {
       return Icon(Icons.person, size: 60, color: theme.primaryColor);
+    }
+
+    if (_selectedHistoryUrl != null) {
+      return Image.network(
+        _selectedHistoryUrl!,
+        fit: BoxFit.cover,
+        width: 120,
+        height: 120,
+        errorBuilder: (context, error, stackTrace) {
+          return Icon(Icons.person, size: 60, color: theme.primaryColor);
+        },
+      );
     }
 
     if (widget.profilePhotoUrl != null && widget.profilePhotoUrl!.isNotEmpty) {
